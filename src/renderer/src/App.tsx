@@ -1,19 +1,21 @@
-import { useState, useEffect } from 'react'
-import JsonGrid from '@redheadphone/react-json-grid'
+import React, { useState } from 'react';
+import Cell from './components/Cell/Cell';
+import './App.css';
 
 function App() {
-  const [jsonData, setJsonData] = useState(null)
+  const [jsonData, setJsonData] = useState(null);
 
-  const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault()
-    const filePath = e.dataTransfer.files[0].path
-    const fileContent = await window.electron.readFile(filePath)
-    const json = JSON.parse(fileContent)
-    setJsonData(json)
-  }
+  const handleDrop = async (e) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files[0];
+    const fileContent = await file.text();
+    const json = JSON.parse(fileContent);
+    setJsonData(json);
+  };
 
   return (
     <div
+      className="vscode-dark"
       style={{
         width: '100vw',
         height: '100vh',
@@ -24,16 +26,18 @@ function App() {
         left: 0,
         overflow: 'auto'
       }}
-      onDragOver={(e) => e.preventDefault()} onDrop={handleDrop}>
-        {jsonData ? (
-          <div style={{ width: '100%', height: '90%', overflow: 'auto' }}>
-            <JsonGrid data={jsonData} />
-          </div>
-        ) : (
-          <p>JSONファイルをドラッグ&ドロップしてください</p>
-        )}
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={handleDrop}
+    >
+      {jsonData ? (
+        <div style={{ width: '100%', height: '95%', overflow: 'auto' }}>
+          <Cell element={jsonData} isRoot={true}  />
+        </div>
+      ) : (
+        <p>JSONファイルをドラッグ&ドロップしてください</p>
+      )}
     </div>
-  )
+  );
 }
 
-export default App
+export default App;

@@ -2,18 +2,17 @@ import React from 'react';
 import ArrayRow from './ArrayRow';
 import ResizableTable from './ResizableTable';
 
-interface ResizableTableProps {
-  headers: Array<{ header: string; resize: boolean; thClass: string }>;
-  tblClass: string;
-  trClass: string;
-  children: React.ReactNode;
-}
-
 interface Props {
   array: Array<any>;
+  depth: number;
+  searchQuery?: string;
+  searchResults?: any[];
+  currentResultIndex?: number;
+  searchInputRef?: any;
+  path: string;
 }
 
-const ArrayTable: React.FC<Props> = ({ array }) => {
+const ArrayTable: React.FC<Props> = ({ array, depth, searchQuery, searchResults, currentResultIndex, searchInputRef, path }) => {
   const headers = React.useMemo(() => {
     const hdrCells = array.reduce<Array<string>>((hdrs, el) => {
       if (typeof el === 'object') {
@@ -32,7 +31,18 @@ const ArrayTable: React.FC<Props> = ({ array }) => {
   return (
     <ResizableTable headers={headers} tblClass="array expanded" trClass="array-hdr">
       {array.map((item, index) => (
-        <ArrayRow key={index} element={item} index={index} columns={headers} />
+        <ArrayRow
+          key={index}
+          element={item}
+          index={index}
+          columns={headers}
+          depth={depth}
+          searchQuery={searchQuery}
+          searchResults={searchResults}
+          currentResultIndex={currentResultIndex}
+          searchInputRef={searchInputRef}
+          path={`${path}[${index}]`}
+        />
       ))}
     </ResizableTable>
   );

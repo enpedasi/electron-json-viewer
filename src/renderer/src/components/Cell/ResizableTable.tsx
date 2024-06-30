@@ -67,7 +67,7 @@ const ResizableTable: React.FC<ResizableTableProps> = ({ headers, tblClass, thea
                 {resize !== false && (
                   <div
                     className="resizer"
-                    style={{ height: tableHeight, width: '5px!important', color: 'yellow!important'}}
+                    style={{ height: tableHeight}}
                     onMouseDown={(e) => resizeCol(header, e)}
                     onDoubleClick={() => resetColSize(header)}
                   >

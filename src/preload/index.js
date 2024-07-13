@@ -1,8 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 
-// console.log('Preload script is loaded')
-
 const api = {
   onDrop: (callback) =>
     ipcRenderer.on('ondrop', (event, filePath) => {
@@ -10,7 +8,8 @@ const api = {
     }),
   readFile: async (filePath) => {
     return await ipcRenderer.invoke('read-file', filePath)
-  }
+  },
+  handleFileOpen: (callback) => ipcRenderer.on('file-opened', callback)
 }
 
 if (process.contextIsolated) {

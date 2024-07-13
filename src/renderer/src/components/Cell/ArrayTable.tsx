@@ -33,7 +33,7 @@ const ArrayTable: React.FC<Props> = ({ array, depth, searchQuery, searchResults,
     const parts = text.split(new RegExp(`(${query})`, 'gi'));
     return parts.map((part, index) =>
       part.toLowerCase() === query.toLowerCase() ? (
-        <span key={index} className="current-highlight">[ac]{part}[ac]</span>
+        <span key={index} className="current-highlight">{part}</span>
       ) : (
         part
       )

@@ -37,4 +37,4 @@ $ npm run build:linux
 
 This project is licensed under MIT License. The licenses of the open source software used are as follows:
 
-RedHeadphone/react-json-grid:  (MIT License)
+dutchigor/json-grid-viewer:  (MIT License)

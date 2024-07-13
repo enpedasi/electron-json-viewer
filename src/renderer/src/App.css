@@ -1,4 +1,263 @@
-div {
-  pointer-events: all;
-  /* これを追加して、イベントが受け取れるようにする */
+.vscode-light {
+  --object-color: #267F99;
+  --array-color: #795E26;
+  --string-color: #A31515;
+  --number-color: #098658;
+  --literal-color: #0000FF;
+  --identifier-color: #001080;
+}
+
+.vscode-dark,
+.vscode-high-contrast {
+  --object-color: #4EC9B0;
+  --array-color: #DCDCAA;
+  --string-color: #CE9178;
+  --number-color: #B5CEA8;
+  --literal-color: #569CD6;
+  --identifier-color: #9CDCFE;
+  --vscode-editor-foreground: #D4D4D4;
+  --vscode-editor-background: #1E1E1E;
+}
+
+table {
+  margin: 2px 0;
+  border-collapse: collapse;
+}
+
+td,
+th {
+  padding: 2px 4px;
+  vertical-align: baseline;
+}
+
+td.member,
+th.key,
+td.element,
+td.value {
+  border: 1px solid var(--vscode-editor-foreground);
+}
+
+.index,
+.collapsed {
+  white-space: nowrap;
+}
+
+.index::after {
+  margin-left: .2em;
+}
+
+td.index::after,
+.badge {
+  padding: 1px 3px;
+  display: inline-block;
+  border-radius: 0.5em;
+  color: var(--vscode-editor-background);
+}
+
+td.index.object::after {
+  content: 'Obj';
+}
+
+td.index.object::after,
+.object.badge {
+  background-color: var(--object-color);
+}
+
+td.index.array::after {
+  content: 'Arr';
+}
+
+td.index.array::after,
+.array.badge {
+  background-color: var(--array-color);
+}
+
+td.index.string::after {
+  content: 'Str';
+  background-color: var(--string-color);
+}
+
+td.index.number::after {
+  content: 'Num';
+  background-color: var(--number-color)
+}
+
+td.index.boolean::after {
+  content: 'Bool';
+  background-color: var(--literal-color);
+}
+
+td.index.null::after {
+  content: 'Null';
+  background-color: var(--literal-color);
+}
+
+.value.string {
+  color: var(--string-color);
+}
+
+.value.number {
+  color: var(--number-color);
+}
+
+.value.boolean {
+  color: var(--literal-color);
+}
+
+.value.null::before {
+  content: 'null';
+  color: var(--literal-color);
+}
+
+.array-el:not(.object) .value {
+  width: 100%;
+}
+
+.expand {
+  display: inline-block;
+  text-align: center;
+  width: 1em;
+  margin-left: 4px;
+  cursor: pointer;
+  border: 1px solid;
+  border-radius: 3px;
+}
+
+th.member {
+  border: 1px solid var(--vscode-editor-foreground);
+  border-top: 2px solid var(--vscode-editor-foreground);
+  border-bottom: 2px solid var(--vscode-editor-foreground);
+}
+
+th.key,
+th.member {
+  color: var(--identifier-color);
+  text-align: left;
+}
+
+table.object {
+  border: 2px solid;
+}
+
+th.index:first-child,
+th:last-child,
+td.index,
+td.member:last-child,
+td.value:last-child {
+  border-right: 2px solid var(--vscode-editor-foreground);
+}
+
+tr.array-el:last-child td.member,
+tr.array-el:last-child td.value {
+  border-bottom: 2px solid var(--vscode-editor-foreground);
+}
+
+th.object.key,
+td.object.element {
+  border-top: 0;
+}
+
+tr.object-hdr th {
+  padding: 0;
+  border: 0;
+}
+
+.resizer {
+  /*display: inline-block*/
+  width: 6px;
+  margin-right: -3px;
+  position: absolute;
+  right: 0;
+  top: 0;
+  cursor: col-resize;
+  user-select: none;
+  z-index: 999;
+}
+
+.array,
+.object,
+.value {
+  user-select: text;
+}
+
+.array,
+.member {
+  position: relative;
+}
+
+.highlight {
+  background-color: yellow;
+  color: black;
+}
+
+.current-highlight {
+  border: 2px solid white;
+  background-clip: padding-box;
+  background-color: rgba(95, 98, 47, 0.801);
+  color: white;
+}
+
+/* 既存のスタイルの下に追加 */
+.app-container {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  position: relative;
+}
+
+.search-container {
+  position: fixed;
+  top: 10px;
+  right: 20px;
+  display: flex;
+  /*align-items: center;*/
+  background-color: rgba(0, 0, 0, 0.7);
+  padding: 10px;
+  border-radius: 5px;
+  z-index: 1000;
+}
+
+.search-container input {
+  margin-right: 10px;
+  padding: 5px;
+  border: none;
+  border-radius: 3px;
+}
+
+.search-container button {
+  padding: 5px 10px;
+  margin: 0.2em;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  background-color: #a7b5c8;
+  color: white;
+}
+
+.search-container button:hover {
+  background-color: #005a9e;
+}
+
+.json-viewer-container {
+  width: 100%;
+  height: 100%;
+  padding-top: 50px;
+  overflow: auto;
+}
+
+.json-viewer {
+  width: 100%;
+  height: auto;
+  display: flex;
+}
+
+.center-panel {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }

@@ -13,7 +13,11 @@ function createWindow() {
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
-      sandbox: false
+      // sandbox: false,
+      // allowFileAccessFromFileURLs: true,
+      //webSecurity: false,
+      nodeIntegration: false,
+      contextIsolation: true
     }
   })
 
@@ -31,6 +35,14 @@ function createWindow() {
   } else {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
+  app.on('will-finish-launching', () => {
+    app.on('open-file', (event, path) => {
+      event.preventDefault()
+      if (mainWindow) {
+        mainWindow.webContents.send('file-opened', path)
+      }
+    })
+  })
 }
 
 app.whenReady().then(() => {

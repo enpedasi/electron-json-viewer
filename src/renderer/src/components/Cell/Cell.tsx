@@ -37,7 +37,9 @@ const Cell: React.FC<CellProps> = ({ element, depth = 0, searchQuery, searchResu
 
   useLayoutEffect(() => {
     if (searchResults && searchResults[currentResultIndex]?.path === path) {
+      document.body.style.overflow = 'visible';
       cellRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      document.body.style.overflow = 'hidden';
       setExpanded(true);
     }
   }, [searchResults, currentResultIndex, path]);

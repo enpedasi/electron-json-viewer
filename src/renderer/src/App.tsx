@@ -105,7 +105,9 @@ function App() {
         setTimeout(() => {
           const element = document.querySelector(`[data-path="${currentResult.path}"]`);
           if (element) {
+            document.body.style.overflow = 'visible';
             element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            document.body.style.overflow = 'hidden';
           }
         }, 200);
       }

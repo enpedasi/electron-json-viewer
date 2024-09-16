@@ -48,7 +48,12 @@ function App() {
   const handleSearch = () => {
     const results = searchJson(jsonData, searchQuery);
     setSearchResults(results);
-    setCurrentResultIndex(0);
+    setCurrentResultIndex(results.length > 0 ? 0 : -1);
+  };
+
+  const clearSearch = () => {
+    setSearchQuery('');
+    resetSearch();
   };
 
   const handleNextResult = () => {
@@ -79,7 +84,9 @@ function App() {
   const handleSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(e.target.value);
     if (e.target.value === '') {
-      resetSearch(); // 検索クエリが空の場合、すべてのハイライトをクリア
+      resetSearch();
+    } else {
+      handleSearch();
     }
   };
 
@@ -117,16 +124,21 @@ function App() {
   return (
     <div className="app-container vscode-dark">
       <div className="search-container">
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleSearchInputChange(e)}
-          onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
-            if (e.nativeEvent.isComposing || e.key !== 'Enter') return;
-            handleSearchOrNext();
-          }}
-          placeholder="検索クエリを入力"
-        />
+        <div className="search-input-wrapper">
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleSearchInputChange(e)}
+            onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
+              if (e.nativeEvent.isComposing || e.key !== 'Enter') return;
+              handleSearchOrNext();
+            }}
+            placeholder="検索"
+          />
+          {searchQuery && (
+            <button className="clear-search" onClick={clearSearch} aria-label="Clear search"></button>
+          )}
+        </div>
         <button onClick={handleSearch}>検索</button>
         <button onClick={handleNextResult}>次へ</button>
       </div>

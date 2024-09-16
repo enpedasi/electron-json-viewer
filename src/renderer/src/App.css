@@ -186,15 +186,17 @@ tr.object-hdr th {
 }
 
 .highlight {
-  background-color: yellow;
-  color: black;
-}
-
-.current-highlight {
   border: 2px solid white;
   background-clip: padding-box;
   background-color: rgba(95, 98, 47, 0.801);
   color: white;
+}
+
+.current-highlight {
+  background-clip: padding-box;
+  border: 1px solid black;
+  background-color: yellow;
+  color: black;
 }
 
 /* 既存のスタイルの下に追加 */
@@ -239,6 +241,42 @@ tr.object-hdr th {
 
 .search-container button:hover {
   background-color: #005a9e;
+}
+
+.search-input-wrapper > input {
+  margin-top: 3px;
+  width: 100%;
+  height: 80%;
+  padding: 5px;
+  border: none;
+  border-radius: 3px;
+}
+
+.search-input-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.clear-search {
+  position: absolute;
+  right: 5px;
+  top: 40%;
+  transform: translateY(-50%);
+  background: none!important;
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+  color: #333!important;
+  height: 80%;
+}
+
+.clear-search:hover {
+  color: #333!important;
+  background-color: #f1f1f1!important;
+}
+
+.clear-search::before {
+  content: '×';
 }
 
 .json-viewer-container {

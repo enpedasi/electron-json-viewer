@@ -7,16 +7,21 @@ declare global {
     electron: {
       handleFileOpen: (callback: (event: any, filePath: string) => void) => void;
       readFile: (filePath: string) => Promise<string>;
+      setWindowTitle: (filePath: string | null) => void; // タイトル設定用の型を追加
+      handleFileDrop: (filePath: string) => Promise<string>; // 新しいメソッドの型を追加
+      platform?: string; // platformプロパティを追加（オプション）
     }
   }
 }
 
 function App() {
-  const [jsonData, setJsonData] = useState(null);
+  const [jsonData, setJsonData] = useState<any>(null);
+  const [currentFilePath, setCurrentFilePath] = useState<string | null>(null); // 現在のファイルパスを保存
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState([]);
+  const [searchResults, setSearchResults] = useState<Array<{path:string;value:any}>>([]);
   const [currentResultIndex, setCurrentResultIndex] = useState(0);
-  const searchInputRef = useRef(null);
+  // ← ここで検索入力欄への ref を用意
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const jsonViewerContainerRef = useRef(null);
 
   const handleDrop = async (e: DragEvent) => {
@@ -25,22 +30,64 @@ function App() {
 
     if (e.dataTransfer && e.dataTransfer.files.length > 0) {
       const file = e.dataTransfer.files[0];
+
       try {
         let fileContent;
-        if (window.electron && window.electron.readFile) {
-          // Electronアプリケーションの場合
-          fileContent = await window.electron.readFile(file.path);
+        let filePath;
+
+        // ファイルパスの取得方法
+        if ((file as any).path) {
+          filePath = (file as any).path;
+        } else if ((file as any).webkitRelativePath) {
+          filePath = (file as any).webkitRelativePath;
+        } else {
+          filePath = file.name;
+        }
+
+        if (window.electron) {
+
+          try {
+            // 新しい専用関数を使用
+            if (window.electron.handleFileDrop) {
+              fileContent = await window.electron.handleFileDrop(filePath);
+            } else {
+              // フォールバック: 以前の実装
+              fileContent = await window.electron.readFile(filePath);
+
+              // 明示的にタイトルを設定
+              if (window.electron.setWindowTitle) {
+                window.electron.setWindowTitle(filePath);
+              }
+            }
+
+            setCurrentFilePath(filePath);
+          } catch (readError) {
+            console.error('Error reading file with path:', filePath, readError);
+            // ファイル読み込みエラー時にも、タイトル設定を試みる
+            if (window.electron.setWindowTitle) {
+              window.electron.setWindowTitle(filePath);
+            }
+          }
         } else {
           // ウェブブラウザの場合
           fileContent = await file.text();
+          setCurrentFilePath(file.name);
         }
+
+        // ファイルの内容をJSONとしてパース
         const json = JSON.parse(fileContent);
         setJsonData(json);
+
+        // 成功後にも、タイトル設定を確実に行う
+        if (window.electron && window.electron.setWindowTitle) {
+          window.electron.setWindowTitle(filePath);
+        }
       } catch (error) {
-        console.error('Error reading or parsing file:', error);
+        console.error('Error during file processing:', error);
       }
     }
   };
+
   const handleDragOver = (e) => {
     e.preventDefault();
   };
@@ -126,10 +173,12 @@ function App() {
       <div className="search-container">
         <div className="search-input-wrapper">
           <input
+            // ← ref を入力欄にセット
+            ref={searchInputRef}
             type="text"
             value={searchQuery}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleSearchInputChange(e)}
-            onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
+            onChange={handleSearchInputChange}
+            onKeyDown={(e) => {
               if (e.nativeEvent.isComposing || e.key !== 'Enter') return;
               handleSearchOrNext();
             }}
@@ -140,7 +189,16 @@ function App() {
           )}
         </div>
         <button onClick={handleSearch}>検索</button>
-        <button onClick={handleNextResult}>次へ</button>
+        {/* ボタン押下後に入力欄を再度フォーカスさせる */}
+        <button
+          onMouseDown={e => e.preventDefault()}  // ← フォーカス移動を阻止
+          onClick={() => {
+            handleNextResult();
+            searchInputRef.current?.focus();      // ← 再フォーカス
+          }}
+        >
+          次へ
+        </button>
       </div>
       <div className="json-viewer-container" ref={jsonViewerContainerRef} onDragOver={handleDragOver} onDrop={handleDrop}>
         {jsonData ? (

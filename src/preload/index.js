@@ -15,7 +15,9 @@ const api = {
   readFile: async (filePath) => {
     return await ipcRenderer.invoke('read-file', filePath)
   },
-  handleFileOpen: (callback) => ipcRenderer.on('file-opened', callback),
+  // handleFileOpen: (callback) => ipcRenderer.on('file-opened', callback), // 古いもの
+  handleFilesOpen: (callback) =>
+    ipcRenderer.on('files-opened', (event, filePaths) => callback(event, filePaths)), // 新しいイベント名と複数パス対応
   // ウィンドウタイトルを設定する関数
   setWindowTitle: (filePath) => {
     ipcRenderer.send('set-window-title', filePath)

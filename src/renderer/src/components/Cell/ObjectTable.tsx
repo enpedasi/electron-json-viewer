@@ -44,7 +44,13 @@ const ObjectTable: React.FC<ObjectTableProps> = ({ member, depth, searchQuery, s
     >
       {Object.entries(member).map(([key, val]) => (
         <tr key={key} className="object member">
-          <th className="object key">{highlightText(key, searchQuery)}</th>
+          <th className={`object key ${
+                searchResults?.some((r, idx) => idx === currentResultIndex && r.path === `${path}.${key}` && r.value === key)
+                ? 'current-highlight'
+                : ''
+             }`}>
+            {highlightText(key, searchQuery || '')}
+          </th>
           <td className="object element">
             <Cell
               element={val}

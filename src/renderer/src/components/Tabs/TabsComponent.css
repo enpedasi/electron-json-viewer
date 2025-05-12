@@ -1,0 +1,160 @@
+/* src/renderer/src/components/Tabs/TabsComponent.css */
+/* 新規作成 */
+
+.tabs-container {
+    width: 100%;
+    background-color: var(--ev-c-black-mute);
+    /* 少し明るい背景 */
+    padding: 5px 5px 0 5px;
+    /* 上左右に少しパディング、下はなし */
+    box-sizing: border-box;
+    flex-shrink: 0;
+    /* 高さが縮まないように */
+}
+
+.tabs-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-wrap: nowrap;
+    /* タブを折り返さない */
+    overflow-x: auto;
+    /* 横スクロールを可能にする */
+    /* スクロールバーのスタイル（オプション） */
+    scrollbar-width: thin;
+    scrollbar-color: var(--ev-c-gray-1) var(--ev-c-black-mute);
+}
+
+.tabs-list::-webkit-scrollbar {
+    height: 5px;
+}
+
+.tabs-list::-webkit-scrollbar-track {
+    background: var(--ev-c-black-mute);
+}
+
+.tabs-list::-webkit-scrollbar-thumb {
+    background-color: var(--ev-c-gray-1);
+    border-radius: 3px;
+}
+
+
+.tab-item {
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
+    margin-right: 2px;
+    /* タブ間の隙間 */
+    cursor: pointer;
+    background-color: var(--ev-c-gray-3);
+    /* 非アクティブタブの背景 */
+    color: var(--ev-c-text-2);
+    /* 非アクティブタブの文字色 */
+    border-top-left-radius: 4px;
+    border-top-right-radius: 4px;
+    border: 1px solid var(--ev-c-gray-2);
+    /* 境界線 */
+    border-bottom: none;
+    /* 下の境界線は消す */
+    white-space: nowrap;
+    /* タブ名が折り返さないように */
+    transition: background-color 0.2s ease, color 0.2s ease;
+    max-width: 200px;
+    /* タブの最大幅 */
+}
+
+.tab-item:hover {
+    background-color: var(--ev-c-gray-2);
+    color: var(--ev-c-text-1);
+}
+
+.tab-item.active {
+    background-color: var(--vscode-editor-background);
+    /* アクティブタブの背景（エディタ背景と同じ） */
+    color: var(--ev-c-text-1);
+    /* アクティブタブの文字色 */
+    border-color: var(--vscode-editor-background);
+    /* アクティブタブの境界線を背景に溶け込ませる */
+    position: relative;
+    /* アクティブタブの下線を消すための疑似要素（または背景色で対応）*/
+    /* z-index: 1; */
+}
+
+/* アクティブタブの下の境界線を隠すためのトリック */
+.tab-item.active::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    /* 境界線の太さ分下にずらす */
+    left: 0;
+    right: 0;
+    height: 1px;
+    /* 境界線の太さ */
+    background-color: var(--vscode-editor-background);
+    /* 背景色と同じ */
+}
+
+
+.tab-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    /* 長いファイル名を省略 */
+    margin-right: 8px;
+    /* 名前と閉じるボタンの間隔 */
+}
+
+.close-tab-btn {
+    background: none;
+    border: none;
+    color: var(--ev-c-text-2);
+    cursor: pointer;
+    padding: 0 4px;
+    font-size: 14px;
+    line-height: 1;
+    border-radius: 3px;
+    margin-left: auto;
+    /* 右端に寄せる */
+}
+
+.close-tab-btn:hover {
+    background-color: var(--ev-c-gray-1);
+    color: var(--ev-c-white);
+}
+
+.tab-item.active .close-tab-btn {
+    color: var(--ev-c-text-1);
+    /* アクティブタブ内のボタンの色 */
+}
+
+.tab-item.active .close-tab-btn:hover {
+    background-color: var(--ev-c-gray-2);
+}
+
+
+.add-tab-item {
+    display: flex;
+    align-items: center;
+    padding: 0 5px;
+    /* 左右のパディングのみ */
+    margin-left: 4px;
+    /* 他のタブとの間隔 */
+}
+
+.add-tab-btn {
+    background: none;
+    border: 1px solid var(--ev-c-gray-2);
+    color: var(--ev-c-text-2);
+    cursor: pointer;
+    padding: 4px 8px;
+    font-size: 16px;
+    line-height: 1;
+    border-radius: 4px;
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.add-tab-btn:hover {
+    background-color: var(--ev-c-gray-2);
+    color: var(--ev-c-text-1);
+    border-color: var(--ev-c-gray-1);
+}

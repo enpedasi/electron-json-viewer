@@ -20,8 +20,9 @@
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.0",
     "@electron-toolkit/utils": "^3.0.0",
-    "@redheadphone/react-json-grid": "^0.5.0",
-    "json-grid": "file:"
+    "@types/uuid": "^10.0.0",
+    "json-grid": "file:",
+    "uuid": "^11.1.0"
   },
   "devDependencies": {
     "@electron-toolkit/eslint-config": "^1.0.2",

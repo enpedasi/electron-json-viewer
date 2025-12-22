@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, webUtils } from 'electron'
 // @electron-toolkit/preloadが原因でエラーが発生しているため、直接必要な機能だけを実装
 // import { electronAPI } from '@electron-toolkit/preload'
 
@@ -28,6 +28,10 @@ const api = {
     ipcRenderer.send('set-window-title', filePath)
     // ファイルの内容を読み込む
     return await ipcRenderer.invoke('read-file', filePath)
+  },
+  // Fileオブジェクトから絶対パスを取得する（Electron 32+ 対応）
+  getFilePath: (file) => {
+    return webUtils.getPathForFile(file)
   }
 }
 

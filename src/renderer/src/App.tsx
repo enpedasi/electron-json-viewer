@@ -12,6 +12,7 @@ declare global {
       readFile: (filePath: string) => Promise<string>;
       setWindowTitle: (filePath: string | null) => void; // タイトル設定用の型を追加
       handleFileDrop: (filePath: string) => Promise<string>; // 新しいメソッドの型を追加
+      getFilePath: (file: File) => string; // 新規追加：Fileオブジェクトからパスを取得
       platform?: string; // platformプロパティを追加（オプション）
       // 必要ならリスナー削除用の関数も追加
     }
@@ -157,8 +158,9 @@ function App() {
       if (files.length === 1 && activeTabId) {
         // 1ファイルのみ & アクティブタブあり → 既存タブに上書き
         const file = files[0];
-        if ((file as any).path && window.electron) {
-          const filePath = (file as any).path;
+        const filePath = window.electron?.getFilePath ? window.electron.getFilePath(file) : (file as any).path;
+
+        if (filePath && window.electron) {
           await loadFileIntoTab(filePath, activeTabId);
         } else {
           console.warn(`Cannot get file path for dropped file: ${file.name}. Dropping files might only work reliably within Electron.`);
@@ -166,8 +168,9 @@ function App() {
       } else {
         // 複数ファイル or アクティブタブなし → 新規タブ
         for (const file of files) {
-          if ((file as any).path && window.electron) {
-            const filePath = (file as any).path;
+          const filePath = window.electron?.getFilePath ? window.electron.getFilePath(file) : (file as any).path;
+
+          if (filePath && window.electron) {
             const newTabId = addTab(filePath, null, true);
             await loadFileIntoTab(filePath, newTabId);
           } else {

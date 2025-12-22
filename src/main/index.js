@@ -47,12 +47,16 @@ function createWindow() {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
 
-  // ファイルがアプリにドロップされたときの処理
+  // ファイルが開かれたときの処理（起動時やDockから）
   app.on('will-finish-launching', () => {
-    app.on('open-file', (event, path) => {
+    app.on('open-file', (event, filePathOrPaths) => {
+      // 引数が単一パスか配列かを確認
       event.preventDefault()
       if (mainWindow) {
-        mainWindow.webContents.send('file-opened', path)
+        // 常に配列として扱う
+        const filePaths = Array.isArray(filePathOrPaths) ? filePathOrPaths : [filePathOrPaths]
+        // レンダラーに配列を送信
+        mainWindow.webContents.send('files-opened', filePaths) // イベント名を変更 'file-opened' -> 'files-opened'
       }
     })
   })
@@ -62,7 +66,7 @@ function createWindow() {
 ipcMain.on('set-window-title', (event, filePath) => {
   if (mainWindow && filePath) {
     const fileName = path.basename(filePath)
-    mainWindow.setTitle(`JSON Grid Viewer - ${fileName}`)
+    mainWindow.setTitle(filePath ? `JSON Grid Viewer - ${fileName}` : 'JSON Grid Viewer')
   } else if (mainWindow) {
     mainWindow.setTitle('JSON Grid Viewer')
   } else {

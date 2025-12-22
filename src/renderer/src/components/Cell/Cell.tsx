@@ -1,4 +1,4 @@
-import React, { useState, useLayoutEffect, memo, useRef, useEffect } from 'react';
+import React, { useState, useLayoutEffect, memo, useRef, useEffect, useCallback } from 'react';
 import ArrayTable from './ArrayTable';
 import ObjectTable from './ObjectTable';
 
@@ -14,32 +14,40 @@ interface CellProps {
 }
 
 const Cell: React.FC<CellProps> = ({ element, depth = 0, searchQuery, searchResults, currentResultIndex, searchInputRef, path = '', isRoot = false }) => {
-  const [expanded, setExpanded] = useState(isRoot);
-  const cellRef = useRef(null);
+  // isRoot または検索結果に含まれる/始まる場合はデフォルトで展開
+  const isInitiallyExpanded = isRoot || searchResults?.some(result => result.path.startsWith(path));
+  const [expanded, setExpanded] = useState(isInitiallyExpanded);
+  const cellRef = useRef<HTMLDivElement>(null); // 型を指定
 
-  const toggleExpanded = () => {
+  // searchQuery が変更されたら isInitiallyExpanded に基づいて展開状態をリセット
+  useEffect(() => {
+    setExpanded(isRoot || searchResults?.some(result => result.path.startsWith(path)) || false);
+  }, [searchQuery, searchResults, path, isRoot]); // searchQuery と searchResults を依存関係に追加
+
+  const toggleExpanded = useCallback(() => {
     setExpanded(!expanded);
-  };
+  }, [expanded]);
 
-  const handleKeyDown = (event) => {
-    if (event.key === '+') {
+  const handleKeyDown = useCallback((event: React.KeyboardEvent<HTMLSpanElement>) => {
+    if (event.key === '+' || event.key === 'ArrowRight') {
       setExpanded(true);
     } else if (event.key === '-') {
       setExpanded(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    if (searchResults && searchResults[currentResultIndex]?.path.startsWith(path)) {
+    // 検索結果が更新され、このCellが親である場合に展開する
+    const shouldExpand = searchResults?.some(result => result.path !== path && result.path.startsWith(path));
+    if (shouldExpand && !expanded) {
       setExpanded(true);
     }
-  }, [searchResults, currentResultIndex, path]);
+  }, [searchResults, currentResultIndex, path, expanded]); // expanded を依存関係に追加
 
   useLayoutEffect(() => {
-    if (searchResults && searchResults[currentResultIndex]?.path === path) {
-      document.body.style.overflow = 'visible';
+    // このCell自体が現在の検索結果である場合にスクロールして表示（親コンポーネントで管理されるべき）
+    if (searchResults && currentResultIndex !== undefined && searchResults[currentResultIndex]?.path === path && cellRef.current) {
       cellRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      document.body.style.overflow = 'hidden';
       setExpanded(true);
     }
   }, [searchResults, currentResultIndex, path]);
@@ -62,7 +70,7 @@ const Cell: React.FC<CellProps> = ({ element, depth = 0, searchQuery, searchResu
 
   if (Array.isArray(element)) {
     return (
-      <div ref={cellRef} data-path={path}>
+      <div ref={cellRef} data-path={path} className="cell-container array-cell">
         <span className="array badge">Array[{element.length}]</span>
         <span className="expand" tabIndex={0}
           onClick={toggleExpanded}
@@ -74,7 +82,7 @@ const Cell: React.FC<CellProps> = ({ element, depth = 0, searchQuery, searchResu
     );
   } else if (typeof element === 'object' && element !== null) {
     return (
-      <div ref={cellRef} data-path={path}>
+      <div ref={cellRef} data-path={path} className="cell-container object-cell">
         <span className="object badge">Object[{Object.keys(element).length}]</span>
         <span className="expand" tabIndex={0}
           onClick={toggleExpanded}
@@ -85,11 +93,12 @@ const Cell: React.FC<CellProps> = ({ element, depth = 0, searchQuery, searchResu
       </div>
     );
   } else {
-    const isHighlighted = searchResults?.some(result => result.path === path && result.value === element);
-    const isCurrentResult = searchResults?.[currentResultIndex]?.path === path;
+    // この値自体が現在の検索結果か？
+    const isCurrentValueResult = searchResults && currentResultIndex !== undefined && searchResults[currentResultIndex]?.path === path;
+    const valueString = String(element);
     return (
-      <span className={`value ${isHighlighted ? 'highlight' : ''} }`} ref={isHighlighted ? searchInputRef : null} data-path={path}>
-        {highlightText(String(element), isCurrentResult ? searchQuery: '')}
+      <span ref={cellRef} className={`value ${typeof element} ${isCurrentValueResult ? 'current-highlight' : ''}`} data-path={path}>
+        {highlightText(valueString, searchQuery || '')}
       </span>
     );
   }

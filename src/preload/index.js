@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, webUtils } from 'electron'
 // @electron-toolkit/preloadが原因でエラーが発生しているため、直接必要な機能だけを実装
 // import { electronAPI } from '@electron-toolkit/preload'
 
@@ -15,7 +15,9 @@ const api = {
   readFile: async (filePath) => {
     return await ipcRenderer.invoke('read-file', filePath)
   },
-  handleFileOpen: (callback) => ipcRenderer.on('file-opened', callback),
+  // handleFileOpen: (callback) => ipcRenderer.on('file-opened', callback), // 古いもの
+  handleFilesOpen: (callback) =>
+    ipcRenderer.on('files-opened', (event, filePaths) => callback(event, filePaths)), // 新しいイベント名と複数パス対応
   // ウィンドウタイトルを設定する関数
   setWindowTitle: (filePath) => {
     ipcRenderer.send('set-window-title', filePath)
@@ -26,6 +28,10 @@ const api = {
     ipcRenderer.send('set-window-title', filePath)
     // ファイルの内容を読み込む
     return await ipcRenderer.invoke('read-file', filePath)
+  },
+  // Fileオブジェクトから絶対パスを取得する（Electron 32+ 対応）
+  getFilePath: (file) => {
+    return webUtils.getPathForFile(file)
   }
 }
 

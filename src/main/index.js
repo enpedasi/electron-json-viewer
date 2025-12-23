@@ -101,6 +101,13 @@ app.whenReady().then(() => {
     event.sender.send('ondrop', filePath)
   })
 
+  // Preloadからのドロップイベントを処理し、ファイルオープンとして扱う
+  ipcMain.on('file-dropped', (event, filePaths) => {
+    if (mainWindow && filePaths && filePaths.length > 0) {
+      mainWindow.webContents.send('files-opened', filePaths)
+    }
+  })
+
   createWindow()
 
   app.on('activate', function () {

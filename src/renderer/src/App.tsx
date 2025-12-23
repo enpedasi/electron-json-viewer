@@ -153,33 +153,10 @@ function App() {
     e.preventDefault();
     e.stopPropagation();
 
-    if (e.dataTransfer && e.dataTransfer.files.length > 0) {
-      const files = Array.from(e.dataTransfer.files);
-      if (files.length === 1 && activeTabId) {
-        // 1ファイルのみ & アクティブタブあり → 既存タブに上書き
-        const file = files[0];
-        const filePath = window.electron?.getFilePath ? window.electron.getFilePath(file) : (file as any).path;
-
-        if (filePath && window.electron) {
-          await loadFileIntoTab(filePath, activeTabId);
-        } else {
-          console.warn(`Cannot get file path for dropped file: ${file.name}. Dropping files might only work reliably within Electron.`);
-        }
-      } else {
-        // 複数ファイル or アクティブタブなし → 新規タブ
-        for (const file of files) {
-          const filePath = window.electron?.getFilePath ? window.electron.getFilePath(file) : (file as any).path;
-
-          if (filePath && window.electron) {
-            const newTabId = addTab(filePath, null, true);
-            await loadFileIntoTab(filePath, newTabId);
-          } else {
-            console.warn(`Cannot get file path for dropped file: ${file.name}. Dropping files might only work reliably within Electron.`);
-          }
-        }
-      }
-    }
-  }, [addTab, loadFileIntoTab, activeTabId]);
+    // ファイルの処理はPreloadスクリプトが行い、メインプロセス経由で渡されるため、
+    // ここではイベントの伝播を止めるだけでよい。
+    // e.dataTransfer.files からの読み込みは ContextBridge の制限で失敗するため削除。
+  }, []);
 
 
   // --- 初期化とイベントリスナー ---
@@ -210,9 +187,16 @@ function App() {
                      setActiveTabId(existingTab.id); // 既存タブをアクティブにする
                      if (index === 0) { /* only log once */ console.log(`Tab for ${filePath} already exists.`); }
                  } else {
-                     const makeActive = index === 0; // 最初のファイルだけアクティブにする
-                     const newTabId = addTab(filePath, null, makeActive);
-                     loadFileIntoTab(filePath, newTabId);
+                     // 最初のファイルで、かつ現在のタブが1つだけで未読み込みのUntitledだった場合、上書きする
+                     if (index === 0 && tabs.length === 1 && tabs[0].filePath === null && tabs[0].jsonData === null) {
+                         const targetTabId = tabs[0].id;
+                         loadFileIntoTab(filePath, targetTabId);
+                         setActiveTabId(targetTabId);
+                     } else {
+                         const makeActive = index === 0; // 最初のファイルだけアクティブにする
+                         const newTabId = addTab(filePath, null, makeActive);
+                         loadFileIntoTab(filePath, newTabId);
+                     }
                  }
              });
          });

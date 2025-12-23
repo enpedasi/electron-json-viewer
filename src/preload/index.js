@@ -8,16 +8,20 @@ const electronAPI = {
 }
 
 const api = {
-  onDrop: (callback) =>
-    ipcRenderer.on('ondrop', (event, filePath) => {
-      callback(event, filePath)
-    }),
+  onDrop: (callback) => {
+    const listener = (event, filePath) => callback(event, filePath)
+    ipcRenderer.on('ondrop', listener)
+    return () => ipcRenderer.removeListener('ondrop', listener)
+  },
   readFile: async (filePath) => {
     return await ipcRenderer.invoke('read-file', filePath)
   },
   // handleFileOpen: (callback) => ipcRenderer.on('file-opened', callback), // 古いもの
-  handleFilesOpen: (callback) =>
-    ipcRenderer.on('files-opened', (event, filePaths) => callback(event, filePaths)), // 新しいイベント名と複数パス対応
+  handleFilesOpen: (callback) => {
+    const listener = (event, filePaths) => callback(event, filePaths)
+    ipcRenderer.on('files-opened', listener)
+    return () => ipcRenderer.removeListener('files-opened', listener)
+  },
   // ウィンドウタイトルを設定する関数
   setWindowTitle: (filePath) => {
     ipcRenderer.send('set-window-title', filePath)
@@ -28,12 +32,35 @@ const api = {
     ipcRenderer.send('set-window-title', filePath)
     // ファイルの内容を読み込む
     return await ipcRenderer.invoke('read-file', filePath)
-  },
-  // Fileオブジェクトから絶対パスを取得する（Electron 32+ 対応）
-  getFilePath: (file) => {
-    return webUtils.getPathForFile(file)
   }
 }
+
+window.addEventListener('dragover', (e) => {
+  e.preventDefault()
+}, true)
+
+window.addEventListener('drop', (e) => {
+  e.preventDefault()
+
+  const files = e.dataTransfer.files
+  const filePaths = []
+  if (files.length > 0) {
+    for (const file of files) {
+      try {
+        const filePath = webUtils.getPathForFile(file)
+        if (filePath) {
+          filePaths.push(filePath)
+        }
+      } catch (error) {
+        console.error('Error getting path for file:', error)
+      }
+    }
+  }
+
+  if (filePaths.length > 0) {
+    ipcRenderer.send('file-dropped', filePaths)
+  }
+}, true) // キャプチャフェーズで確実に捕捉
 
 // contextIsolation が有効な場合（推奨）
 if (process.contextIsolated) {

@@ -33,9 +33,14 @@ const TabsComponent: React.FC<TabsProps> = ({
             key={tab.id}
             className={`tab-item ${tab.id === activeTabId ? 'active' : ''}`}
             onClick={() => onSelectTab(tab.id)}
-            title={tab.filePath || 'Untitled'} // フルパスをツールチップに表示
+            aria-label={tab.filePath ?? tab.fileName}
           >
             <span className="tab-name">{tab.fileName}</span>
+            {tab.filePath && (
+              <span className="tab-tooltip" role="tooltip">
+                {tab.filePath}
+              </span>
+            )}
             {/* 最後のタブ以外、またはタブが複数の場合に閉じるボタンを表示 */}
             {(tabs.length > 1 || tab.filePath !== null) && (
                  <button

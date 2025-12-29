@@ -47,6 +47,7 @@
     margin-right: 2px;
     /* タブ間の隙間 */
     cursor: pointer;
+    position: relative;
     background-color: var(--ev-c-gray-3);
     /* 非アクティブタブの背景 */
     color: var(--ev-c-text-2);
@@ -102,6 +103,44 @@
     /* 長いファイル名を省略 */
     margin-right: 8px;
     /* 名前と閉じるボタンの間隔 */
+}
+
+.tab-tooltip {
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: var(--ev-c-gray-1);
+    color: var(--ev-c-white);
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    max-width: 480px;
+    white-space: normal;
+    word-break: break-all;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 0.15s ease, visibility 0.15s ease;
+    z-index: 10;
+}
+
+.tab-tooltip::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border-width: 6px 6px 0 6px;
+    border-style: solid;
+    border-color: var(--ev-c-gray-1) transparent transparent transparent;
+}
+
+.tab-item:hover .tab-tooltip,
+.tab-item:focus-within .tab-tooltip {
+    opacity: 1;
+    visibility: visible;
 }
 
 .close-tab-btn {

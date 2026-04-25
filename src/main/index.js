@@ -40,6 +40,13 @@ function createWindow() {
     return { action: 'deny' }
   })
 
+  mainWindow.webContents.on('before-input-event', (event, input) => {
+    if (input.key === 'f' && (input.control || input.meta) && !input.shift && !input.alt) {
+      mainWindow.webContents.send('show-search')
+      event.preventDefault()
+    }
+  })
+
   // 開発環境と本番環境でのURL/ファイル読み込み
   if (isDev && process.env['ELECTRON_RENDERER_URL']) {
     mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])

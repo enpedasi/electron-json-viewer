@@ -33,6 +33,11 @@ const api = {
   },
   showUnsavedDialog: async ({ fileName }) => {
     return await ipcRenderer.invoke('show-unsaved-dialog', { fileName })
+  },
+  onShowSearch: (callback) => {
+    const listener = () => callback()
+    ipcRenderer.on('show-search', listener)
+    return () => ipcRenderer.removeListener('show-search', listener)
   }
 }
 

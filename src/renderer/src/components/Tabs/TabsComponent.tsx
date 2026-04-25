@@ -1,4 +1,3 @@
-// src/renderer/src/components/Tabs/TabsComponent.tsx
 import React from 'react';
 import './TabsComponent.css';
 
@@ -15,6 +14,10 @@ interface TabsProps {
   onSelectTab: (tabId: string) => void;
   onCloseTab: (tabId: string) => void;
   onAddTab: () => void;
+  onToggleEditMode?: () => void;
+  onToggleViewMode?: () => void;
+  activeTabMode?: string;
+  activeTabViewMode?: string;
 }
 
 const TabsComponent: React.FC<TabsProps> = ({
@@ -23,7 +26,13 @@ const TabsComponent: React.FC<TabsProps> = ({
   onSelectTab,
   onCloseTab,
   onAddTab,
+  onToggleEditMode,
+  onToggleViewMode,
+  activeTabMode = 'view',
+  activeTabViewMode = 'grid',
 }) => {
+  const isEditMode = activeTabMode === 'edit';
+
   return (
     <div className="tabs-container">
       <ul className="tabs-list">
@@ -56,6 +65,22 @@ const TabsComponent: React.FC<TabsProps> = ({
           <button className="add-tab-btn">+</button>
         </li>
       </ul>
+      <div className="tab-mode-buttons">
+        <button
+          className={`tab-mode-btn ${isEditMode ? 'active' : ''}`}
+          onClick={onToggleEditMode}
+          title={isEditMode ? '閲覧モードに切替' : '編集モードに切替'}
+        >
+          {isEditMode ? '✏️ 編集' : '👁 閲覧'}
+        </button>
+        <button
+          className={`tab-mode-btn ${activeTabViewMode === 'text' ? 'active' : ''}`}
+          onClick={onToggleViewMode}
+          title={activeTabViewMode === 'grid' ? 'テキスト表示' : 'グリッド表示'}
+        >
+          {activeTabViewMode === 'grid' ? '{ } テキスト' : '⚏ グリッド'}
+        </button>
+      </div>
     </div>
   );
 };

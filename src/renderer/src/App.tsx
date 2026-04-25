@@ -15,6 +15,7 @@ declare global {
       getFilePath: (file: File) => string;
       saveJsonFile: (opts: { filePath?: string | null; defaultPath?: string; content: string }) => Promise<{ canceled: boolean; filePath?: string }>;
       showUnsavedDialog: (opts: { fileName: string }) => Promise<{ response: number }>;
+      onShowSearch: (callback: () => void) => (() => void) | undefined;
       platform?: string;
     }
   }
@@ -56,6 +57,7 @@ const MAX_HISTORY = 100;
 function App() {
   const [tabs, setTabs] = useState<TabState[]>([]);
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
+  const [searchVisible, setSearchVisible] = useState(false);
 
   const getFileName = (path: string | null): string => {
     if (!path) return 'Untitled';
@@ -70,6 +72,17 @@ function App() {
       return 'Untitled';
     }
   };
+
+  const updateTabData = useCallback((tabId: string, updates: Partial<Omit<TabState, 'id'>>) => {
+    setTabs(prevTabs =>
+      prevTabs.map(tab =>
+        tab.id === tabId ? { ...tab, ...updates } : tab
+      )
+    );
+  }, []);
+
+  // --- アクティブなタブの取得 ---
+  const activeTabData = tabs.find(tab => tab.id === activeTabId);
 
   // --- タブ操作 ---
   const addTab = useCallback((filePath: string | null = null, data: any = null, makeActive = true): string => {
@@ -95,6 +108,40 @@ function App() {
     }
     return newTabId;
   }, [tabs.length]);
+
+  // --- 保存 ---
+  const handleSave = useCallback(async (tabId?: string): Promise<boolean> => {
+    const targetId = tabId || activeTabId;
+    if (!targetId) return false;
+    const tab = tabs.find(t => t.id === targetId);
+    if (!tab || !tab.jsonData) return false;
+
+    try {
+      const content = JSON.stringify(tab.jsonData, null, 2);
+      const result = await window.electron?.saveJsonFile({
+        filePath: tab.filePath,
+        defaultPath: tab.fileName || 'untitled.json',
+        content
+      });
+      if (!result || result.canceled) return false;
+
+      const newFileName = getFileName(result.filePath);
+      setTabs(prevTabs => prevTabs.map(t => {
+        if (t.id !== targetId) return t;
+        return {
+          ...t,
+          filePath: result.filePath,
+          fileName: newFileName,
+          isDirty: false,
+          originalJson: content
+        };
+      }));
+      return true;
+    } catch (error) {
+      console.error('Error saving file:', error);
+      return false;
+    }
+  }, [tabs, activeTabId]);
 
   const closeTabWithCheck = useCallback(async (tabIdToClose: string) => {
     const tab = tabs.find(t => t.id === tabIdToClose);
@@ -124,15 +171,7 @@ function App() {
       }
       return newTabs;
     });
-  }, [tabs, activeTabId]);
-
-  const updateTabData = useCallback((tabId: string, updates: Partial<Omit<TabState, 'id'>>) => {
-    setTabs(prevTabs =>
-      prevTabs.map(tab =>
-        tab.id === tabId ? { ...tab, ...updates } : tab
-      )
-    );
-  }, []);
+  }, [tabs, activeTabId, handleSave]);
 
   // --- ファイル処理 ---
   const loadFileIntoTab = useCallback(async (filePath: string, tabId: string) => {
@@ -183,14 +222,6 @@ function App() {
   }, [activeTabId]);
 
   // --- Undo/Redo ---
-  const pushHistory = useCallback((tabId: string, entry: HistoryEntry) => {
-    setTabs(prevTabs => prevTabs.map(tab => {
-      if (tab.id !== tabId) return tab;
-      const undo = [entry, ...tab.history.undo].slice(0, MAX_HISTORY);
-      return { ...tab, history: { undo, redo: [] }, isDirty: true };
-    }));
-  }, []);
-
   const handleUndo = useCallback(() => {
     if (!activeTabId) return;
     setTabs(prevTabs => prevTabs.map(tab => {
@@ -279,40 +310,6 @@ function App() {
     }));
   }, [activeTabId]);
 
-  // --- 保存 ---
-  const handleSave = useCallback(async (tabId?: string): Promise<boolean> => {
-    const targetId = tabId || activeTabId;
-    if (!targetId) return false;
-    const tab = tabs.find(t => t.id === targetId);
-    if (!tab || !tab.jsonData) return false;
-
-    try {
-      const content = JSON.stringify(tab.jsonData, null, 2);
-      const result = await window.electron?.saveJsonFile({
-        filePath: tab.filePath,
-        defaultPath: tab.fileName || 'untitled.json',
-        content
-      });
-      if (!result || result.canceled) return false;
-
-      const newFileName = getFileName(result.filePath);
-      setTabs(prevTabs => prevTabs.map(t => {
-        if (t.id !== targetId) return t;
-        return {
-          ...t,
-          filePath: result.filePath,
-          fileName: newFileName,
-          isDirty: false,
-          originalJson: content
-        };
-      }));
-      return true;
-    } catch (error) {
-      console.error('Error saving file:', error);
-      return false;
-    }
-  }, [tabs, activeTabId]);
-
   const handleTextEditorChange = useCallback((newText: string) => {
     if (!activeTabId) return;
     try {
@@ -322,9 +319,43 @@ function App() {
         return { ...tab, jsonData: parsed, isDirty: true };
       }));
     } catch {
-      // invalid JSON - ignore parse errors in text mode
+      // invalid JSON
     }
   }, [activeTabId]);
+
+  // --- 検索関連処理 ---
+  const handleSearch = useCallback(() => {
+    if (!activeTabData) return;
+    const results = searchJson(activeTabData.jsonData, activeTabData.searchQuery);
+    updateTabData(activeTabData.id, { searchResults: results, currentResultIndex: results.length > 0 ? 0 : -1 });
+  }, [activeTabData, updateTabData]);
+
+  const handleNextResult = useCallback(() => {
+    if (!activeTabData || activeTabData.searchResults.length === 0) return;
+    const nextIndex = (activeTabData.currentResultIndex + 1) % activeTabData.searchResults.length;
+    updateTabData(activeTabData.id, { currentResultIndex: nextIndex });
+  }, [activeTabData, updateTabData]);
+
+  const clearSearch = useCallback(() => {
+    if (!activeTabData) return;
+    updateTabData(activeTabData.id, { searchQuery: '', searchResults: [], currentResultIndex: -1 });
+  }, [activeTabData, updateTabData]);
+
+  const handleSearchInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!activeTabData) return;
+    const query = e.target.value;
+    updateTabData(activeTabData.id, { searchQuery: query, searchResults: [], currentResultIndex: -1 });
+  }, [activeTabData, updateTabData]);
+
+  const handleSearchKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.nativeEvent.isComposing || e.key !== 'Enter') return;
+    if (!activeTabData || !activeTabData.searchQuery) return;
+    if (activeTabData.searchResults.length > 0) {
+      handleNextResult();
+    } else {
+      handleSearch();
+    }
+  }, [activeTabData, handleSearch, handleNextResult]);
 
   // --- 初期化とイベントリスナー ---
   useEffect(() => {
@@ -367,11 +398,21 @@ function App() {
       });
     }
 
+    let removeShowSearchListener: (() => void) | undefined;
+    if (window.electron?.onShowSearch) {
+      removeShowSearchListener = window.electron.onShowSearch(() => {
+        setSearchVisible(true);
+      });
+    }
+
     return () => {
       document.removeEventListener('dragover', handleDragOver);
       document.removeEventListener('drop', handleDrop);
       if (removeFilesOpenListener && typeof removeFilesOpenListener === 'function') {
         removeFilesOpenListener();
+      }
+      if (removeShowSearchListener) {
+        removeShowSearchListener();
       }
     };
   }, [addTab, handleDrop, loadFileIntoTab, tabs]);
@@ -384,11 +425,7 @@ function App() {
 
       if (mod && e.key === 's') {
         e.preventDefault();
-        if (e.shiftKey) {
-          handleSave();
-        } else {
-          handleSave();
-        }
+        handleSave();
       }
       if (mod && e.key === 'z' && !e.shiftKey) {
         e.preventDefault();
@@ -402,11 +439,19 @@ function App() {
         e.preventDefault();
         handleRedo();
       }
+      if (mod && e.key === 'f') {
+        e.preventDefault();
+        setSearchVisible(true);
+      }
+      if (e.key === 'Escape' && searchVisible) {
+        setSearchVisible(false);
+        clearSearch();
+      }
     };
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [handleSave, handleUndo, handleRedo]);
+  }, [handleSave, handleUndo, handleRedo, searchVisible, clearSearch]);
 
   // --- ウィンドウタイトル更新 ---
   useEffect(() => {
@@ -418,43 +463,6 @@ function App() {
     }
   }, [activeTabId, tabs]);
 
-  // --- アクティブなタブの取得 ---
-  const activeTabData = tabs.find(tab => tab.id === activeTabId);
-
-  // --- 検索関連処理 ---
-  const handleSearch = useCallback(() => {
-    if (!activeTabData) return;
-    const results = searchJson(activeTabData.jsonData, activeTabData.searchQuery);
-    updateTabData(activeTabData.id, { searchResults: results, currentResultIndex: results.length > 0 ? 0 : -1 });
-  }, [activeTabData, updateTabData]);
-
-  const handleNextResult = useCallback(() => {
-    if (!activeTabData || activeTabData.searchResults.length === 0) return;
-    const nextIndex = (activeTabData.currentResultIndex + 1) % activeTabData.searchResults.length;
-    updateTabData(activeTabData.id, { currentResultIndex: nextIndex });
-  }, [activeTabData, updateTabData]);
-
-  const clearSearch = useCallback(() => {
-    if (!activeTabData) return;
-    updateTabData(activeTabData.id, { searchQuery: '', searchResults: [], currentResultIndex: -1 });
-  }, [activeTabData, updateTabData]);
-
-  const handleSearchInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!activeTabData) return;
-    const query = e.target.value;
-    updateTabData(activeTabData.id, { searchQuery: query, searchResults: [], currentResultIndex: -1 });
-  }, [activeTabData, updateTabData]);
-
-  const handleSearchKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.nativeEvent.isComposing || e.key !== 'Enter') return;
-    if (!activeTabData || !activeTabData.searchQuery) return;
-    if (activeTabData.searchResults.length > 0) {
-      handleNextResult();
-    } else {
-      handleSearch();
-    }
-  }, [activeTabData, handleSearch, handleNextResult]);
-
   // --- レンダリング ---
   return (
     <div className="app-container vscode-dark">
@@ -464,12 +472,18 @@ function App() {
         onSelectTab={setActiveTabId}
         onCloseTab={closeTabWithCheck}
         onAddTab={() => addTab(null, null, true)}
+        onToggleEditMode={toggleEditMode}
+        onToggleViewMode={toggleViewMode}
+        activeTabMode={activeTabData?.mode || 'view'}
+        activeTabViewMode={activeTabData?.viewMode || 'grid'}
       />
       <div className="json-view-area">
         {activeTabData ? (
           <JsonViewComponent
             key={activeTabData.id}
             tabData={activeTabData}
+            searchVisible={searchVisible}
+            onSearchVisibleChange={setSearchVisible}
             onSearchInputChange={handleSearchInputChange}
             onSearchKeyDown={handleSearchKeyDown}
             onSearchExecute={handleSearch}
@@ -480,8 +494,6 @@ function App() {
             onAddProperty={handleAddProperty}
             onAddArrayItem={handleAddArrayItem}
             onRenameKey={handleRenameKey}
-            onToggleEditMode={toggleEditMode}
-            onToggleViewMode={toggleViewMode}
             onSave={() => handleSave()}
             onUndo={handleUndo}
             onRedo={handleRedo}

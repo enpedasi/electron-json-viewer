@@ -1,18 +1,27 @@
-// src/renderer/src/components/JsonView/JsonViewComponent.tsx
-// 新規作成
 import React, { useRef, useEffect, useCallback } from 'react';
-import Cell from '../Cell/Cell'; // Cellコンポーネントをインポート
-import { TabState } from '../../App'; // App.tsx から TabState をインポート
-import '../../App.css'; // App.css または専用のCSS
+import Cell from '../Cell/Cell';
+import TextEditor from './TextEditor';
+import { TabState } from '../../App';
+import '../../App.css';
 
 interface JsonViewProps {
   tabData: TabState;
-  // onDataChange: (updates: Partial<Omit<TabState, 'id'>>) => void; // 状態更新用コールバックはApp側で行うので削除
   onSearchInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onSearchKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void;
   onSearchExecute: () => void;
   onNextResult: () => void;
   onClearSearch: () => void;
+  onDataChange?: (path: string, newValue: any) => void;
+  onDelete?: (path: string) => void;
+  onAddProperty?: (path: string, key: string, value: any) => void;
+  onAddArrayItem?: (path: string, value: any) => void;
+  onRenameKey?: (path: string, oldKey: string, newKey: string) => void;
+  onToggleEditMode?: () => void;
+  onToggleViewMode?: () => void;
+  onSave?: () => void;
+  onUndo?: () => void;
+  onRedo?: () => void;
+  onTextEditorChange?: (newText: string) => void;
 }
 
 const JsonViewComponent: React.FC<JsonViewProps> = ({
@@ -22,149 +31,183 @@ const JsonViewComponent: React.FC<JsonViewProps> = ({
   onSearchExecute,
   onNextResult,
   onClearSearch,
+  onDataChange,
+  onDelete,
+  onAddProperty,
+  onAddArrayItem,
+  onRenameKey,
+  onToggleEditMode,
+  onToggleViewMode,
+  onSave,
+  onUndo,
+  onRedo,
+  onTextEditorChange,
 }) => {
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const jsonViewerContainerRef = useRef<HTMLDivElement>(null); // コンテナのref
+  const jsonViewerContainerRef = useRef<HTMLDivElement>(null);
 
-  // ハイライトとスクロールを管理する関数
   const manageHighlightAndScroll = useCallback(() => {
     const container = jsonViewerContainerRef.current;
     if (!container) return;
 
-    // 既存のハイライトをすべてクリア
     container.querySelectorAll('.highlight, .current-highlight').forEach(el => {
-        el.classList.remove('highlight', 'current-highlight');
+      el.classList.remove('highlight', 'current-highlight');
     });
 
     if (tabData.searchResults.length > 0 && tabData.currentResultIndex >= 0) {
       const currentResult = tabData.searchResults[tabData.currentResultIndex];
       if (currentResult) {
-        // 少し待ってから要素を探してスクロール
         const timeoutId = setTimeout(() => {
           try {
-            // CSSセレクター用にパスをエスケープ
             const escapedPath = CSS.escape(currentResult.path);
-            // data-path属性を持つ要素を探す (Cell または th.key)
             const element = container.querySelector(`[data-path="${escapedPath}"], th.key[data-path="${escapedPath}"]`);
-
             if (element) {
-               // 現在の結果にハイライトクラスを追加
               element.classList.add('current-highlight');
-
-              // 要素がビューポート内に表示されているか確認
               const elementRect = element.getBoundingClientRect();
               const containerRect = container.getBoundingClientRect();
-
-              // 要素がコンテナの表示領域内に完全に見えているか、または一部見えているか
-              const isVisible =
-                elementRect.top >= containerRect.top &&
-                elementRect.left >= containerRect.left &&
-                elementRect.bottom <= containerRect.bottom &&
-                elementRect.right <= containerRect.right;
-
               const isPartiallyVisible =
                 elementRect.top < containerRect.bottom &&
-                elementRect.bottom > containerRect.top; // 縦方向のみチェック（横スクロールは未考慮）
-
-              // 要素が見えていない場合のみスクロール
+                elementRect.bottom > containerRect.top;
               if (!isPartiallyVisible) {
                 element.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
               }
-            } else {
-              console.warn(`Element with data-path="${currentResult.path}" not found for highlighting/scrolling.`);
             }
           } catch (e) {
-              console.error("Error during highlight/scroll:", e);
+            console.error("Error during highlight/scroll:", e);
           }
-        }, 100); // DOM更新後のタイミングで実行するための遅延
-        return () => clearTimeout(timeoutId); // クリーンアップ
+        }, 100);
+        return () => clearTimeout(timeoutId);
       }
     }
-  }, [tabData.searchResults, tabData.currentResultIndex]); // 依存関係
+  }, [tabData.searchResults, tabData.currentResultIndex]);
 
-  // 検索結果またはインデックスが変わったらハイライトとスクロールを実行
   useEffect(() => {
     manageHighlightAndScroll();
-  }, [manageHighlightAndScroll]); // manageHighlightAndScroll 関数自体を依存関係にする
+  }, [manageHighlightAndScroll]);
 
-
-  // searchQuery が空になったらハイライトをクリア（既に manageHighlightAndScroll で処理されているかも）
   useEffect(() => {
-      if (tabData.searchQuery === '' && jsonViewerContainerRef.current) {
-           jsonViewerContainerRef.current.querySelectorAll('.highlight, .current-highlight').forEach(el => {
-             el.classList.remove('highlight', 'current-highlight');
-         });
-      }
+    if (tabData.searchQuery === '' && jsonViewerContainerRef.current) {
+      jsonViewerContainerRef.current.querySelectorAll('.highlight, .current-highlight').forEach(el => {
+        el.classList.remove('highlight', 'current-highlight');
+      });
+    }
   }, [tabData.searchQuery]);
 
+  const isEditMode = tabData.mode === 'edit';
 
   return (
-    // このコンポーネント用のラッパー div
     <div className="json-view-content">
-      {/* 検索バー */}
-      <div className="search-container">
-        <div className="search-input-wrapper">
-          <input
-            ref={searchInputRef}
-            type="text"
-            value={tabData.searchQuery}
-            onChange={onSearchInputChange}
-            onKeyDown={onSearchKeyDown}
-            placeholder="検索 (Enterで実行/次へ)"
-            disabled={!tabData.jsonData || tabData.jsonData.error} // データがないかエラーの場合は無効化
-          />
-          {tabData.searchQuery && (
-            <button className="clear-search" onClick={onClearSearch} aria-label="Clear search"></button>
+      {/* ツールバー */}
+      <div className="edit-toolbar">
+        <div className="toolbar-left">
+          <button
+            className={`toolbar-btn mode-btn ${isEditMode ? 'active' : ''}`}
+            onClick={onToggleEditMode}
+            title={isEditMode ? '閲覧モードに切替' : '編集モードに切替'}
+          >
+            {isEditMode ? '✏️ 編集中' : '👁 閲覧中'}
+          </button>
+          <button
+            className={`toolbar-btn view-btn ${tabData.viewMode === 'text' ? 'active' : ''}`}
+            onClick={onToggleViewMode}
+            title={tabData.viewMode === 'grid' ? 'テキスト表示' : 'グリッド表示'}
+          >
+            {tabData.viewMode === 'grid' ? '{ } テキスト' : '⚏ グリッド'}
+          </button>
+          {isEditMode && (
+            <>
+              <button className="toolbar-btn" onClick={onUndo} disabled={tabData.history.undo.length === 0} title="元に戻す (Ctrl+Z)">
+                ↶ 取消
+              </button>
+              <button className="toolbar-btn" onClick={onRedo} disabled={tabData.history.redo.length === 0} title="やり直し (Ctrl+Shift+Z)">
+                ↷ 再実行
+              </button>
+              <button className="toolbar-btn save-btn" onClick={onSave} disabled={!tabData.isDirty} title="保存 (Ctrl+S)">
+                💾 保存
+              </button>
+            </>
           )}
         </div>
-        <button onClick={onSearchExecute} disabled={!tabData.searchQuery || !tabData.jsonData || tabData.jsonData.error}>
-          検索
-        </button>
-        <button
-           onMouseDown={e => e.preventDefault()} // フォーカス移動阻止
-           onClick={() => {
-             onNextResult();
-             searchInputRef.current?.focus(); // 再フォーカス
-           }}
-           disabled={tabData.searchResults.length === 0} // 結果がないときは無効化
-        >
-          次へ {tabData.searchResults.length > 0 ? `(${tabData.currentResultIndex + 1}/${tabData.searchResults.length})` : ''}
-        </button>
+        {/* 検索バー */}
+        <div className="search-container">
+          <div className="search-input-wrapper">
+            <input
+              ref={searchInputRef}
+              type="text"
+              value={tabData.searchQuery}
+              onChange={onSearchInputChange}
+              onKeyDown={onSearchKeyDown}
+              placeholder="検索 (Enterで実行/次へ)"
+              disabled={!tabData.jsonData || tabData.jsonData.error}
+            />
+            {tabData.searchQuery && (
+              <button className="clear-search" onClick={onClearSearch} aria-label="Clear search"></button>
+            )}
+          </div>
+          <button onClick={onSearchExecute} disabled={!tabData.searchQuery || !tabData.jsonData || tabData.jsonData.error}>
+            検索
+          </button>
+          <button
+            onMouseDown={e => e.preventDefault()}
+            onClick={() => {
+              onNextResult();
+              searchInputRef.current?.focus();
+            }}
+            disabled={tabData.searchResults.length === 0}
+          >
+            次へ {tabData.searchResults.length > 0 ? `(${tabData.currentResultIndex + 1}/${tabData.searchResults.length})` : ''}
+          </button>
+        </div>
       </div>
 
-      {/* JSON表示エリア (スクロール可能) */}
+      {/* コンテンツエリア */}
       <div className="json-viewer-container" ref={jsonViewerContainerRef}>
-        {tabData.jsonData ? (
-           // エラーオブジェクトかどうかの判定を改善
-           typeof tabData.jsonData === 'object' && tabData.jsonData !== null && 'error' in tabData.jsonData ? (
-                 <div className="center-panel error-panel">
-                    <p>エラー:</p>
-                    {/* エラー内容を安全に表示 */}
-                    <pre>{typeof tabData.jsonData.error === 'string' ? tabData.jsonData.error : JSON.stringify(tabData.jsonData.error)}</pre>
-                 </div>
-           ) : (
-                <div className="json-viewer">
-                    <Cell
-                        element={tabData.jsonData}
-                        searchQuery={tabData.searchQuery}
-                        searchResults={tabData.searchResults}
-                        currentResultIndex={tabData.currentResultIndex}
-                        path="" // Root path
-                        isRoot={true} // ルート要素はデフォルトで展開
-                        // searchInputRef は不要になった
-                    />
-                </div>
-           )
-        ) : tabData.filePath ? (
-            // filePathはあるがjsonDataがない場合（読み込み中など）
+        {tabData.viewMode === 'text' ? (
+          tabData.jsonData ? (
+            typeof tabData.jsonData === 'object' && tabData.jsonData !== null && 'error' in tabData.jsonData ? (
+              <div className="center-panel error-panel">
+                <p>エラー:</p>
+                <pre>{typeof tabData.jsonData.error === 'string' ? tabData.jsonData.error : JSON.stringify(tabData.jsonData.error)}</pre>
+              </div>
+            ) : (
+              <TextEditor tabData={tabData} onChange={onTextEditorChange || (() => {})} />
+            )
+          ) : (
             <div className="center-panel">
-                <p>{tabData.fileName} を読み込み中...</p>
+              <p>JSONファイルをドラッグ&ドロップしてください</p>
             </div>
-        ): (
-          // jsonDataもfilePathもない場合（例: 新規タブ）
-          <div className="center-panel">
-             <p>JSONファイルをドラッグ&ドロップしてください</p>
-          </div>
+          )
+        ) : (
+          tabData.jsonData ? (
+            typeof tabData.jsonData === 'object' && tabData.jsonData !== null && 'error' in tabData.jsonData ? (
+              <div className="center-panel error-panel">
+                <p>エラー:</p>
+                <pre>{typeof tabData.jsonData.error === 'string' ? tabData.jsonData.error : JSON.stringify(tabData.jsonData.error)}</pre>
+              </div>
+            ) : (
+              <div className="json-viewer">
+                <Cell
+                  element={tabData.jsonData}
+                  searchQuery={tabData.searchQuery}
+                  searchResults={tabData.searchResults}
+                  currentResultIndex={tabData.currentResultIndex}
+                  path=""
+                  isRoot={true}
+                  isEditMode={isEditMode}
+                  onDataChange={onDataChange}
+                  onDelete={onDelete}
+                />
+              </div>
+            )
+          ) : tabData.filePath ? (
+            <div className="center-panel">
+              <p>{tabData.fileName} を読み込み中...</p>
+            </div>
+          ) : (
+            <div className="center-panel">
+              <p>JSONファイルをドラッグ&ドロップしてください</p>
+            </div>
+          )
         )}
       </div>
     </div>

@@ -15,9 +15,12 @@ interface ArrayRowProps {
   currentResultIndex?: number;
   searchInputRef?: any;
   path: string;
+  isEditMode?: boolean;
+  onDataChange?: (path: string, newValue: any) => void;
+  onDelete?: (path: string) => void;
 }
 
-const ArrayRow: React.FC<ArrayRowProps> = ({ element, index, columns = [], depth, searchQuery, searchResults, currentResultIndex, searchInputRef, path }) => {
+const ArrayRow: React.FC<ArrayRowProps> = ({ element, index, columns = [], depth, searchQuery, searchResults, currentResultIndex, searchInputRef, path, isEditMode = false, onDataChange, onDelete }) => {
   const typeOfEl = Array.isArray(element) ? 'array' :
     element === null ? 'null' :
     typeof element;
@@ -36,6 +39,9 @@ const ArrayRow: React.FC<ArrayRowProps> = ({ element, index, columns = [], depth
               currentResultIndex={currentResultIndex}
               searchInputRef={searchInputRef}
               path={`${path}.${header}`}
+              isEditMode={isEditMode}
+              onDataChange={onDataChange}
+              onDelete={onDelete}
             />
           </td>
         ))
@@ -49,7 +55,19 @@ const ArrayRow: React.FC<ArrayRowProps> = ({ element, index, columns = [], depth
             currentResultIndex={currentResultIndex}
             searchInputRef={searchInputRef}
             path={path}
+            isEditMode={isEditMode}
+            onDataChange={onDataChange}
+            onDelete={onDelete}
           />
+        </td>
+      )}
+      {isEditMode && (
+        <td className="row-actions">
+          <button
+            className="delete-row-btn"
+            onClick={(e) => { e.stopPropagation(); onDelete?.(path); }}
+            title="削除"
+          >✕</button>
         </td>
       )}
     </tr>

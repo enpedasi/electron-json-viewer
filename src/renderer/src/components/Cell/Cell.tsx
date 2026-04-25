@@ -1,6 +1,7 @@
 import React, { useState, useLayoutEffect, memo, useRef, useEffect, useCallback } from 'react';
 import ArrayTable from './ArrayTable';
 import ObjectTable from './ObjectTable';
+import EditableCell from './EditableCell';
 
 interface CellProps {
   element: any;
@@ -11,18 +12,19 @@ interface CellProps {
   searchInputRef?: any;
   path?: string;
   isRoot?: boolean;
+  isEditMode?: boolean;
+  onDataChange?: (path: string, newValue: any) => void;
+  onDelete?: (path: string) => void;
 }
 
-const Cell: React.FC<CellProps> = ({ element, depth = 0, searchQuery, searchResults, currentResultIndex, searchInputRef, path = '', isRoot = false }) => {
-  // isRoot または検索結果に含まれる/始まる場合はデフォルトで展開
+const Cell: React.FC<CellProps> = ({ element, depth = 0, searchQuery, searchResults, currentResultIndex, searchInputRef, path = '', isRoot = false, isEditMode = false, onDataChange, onDelete }) => {
   const isInitiallyExpanded = isRoot || searchResults?.some(result => result.path.startsWith(path));
   const [expanded, setExpanded] = useState(isInitiallyExpanded);
-  const cellRef = useRef<HTMLDivElement>(null); // 型を指定
+  const cellRef = useRef<HTMLDivElement>(null);
 
-  // searchQuery が変更されたら isInitiallyExpanded に基づいて展開状態をリセット
   useEffect(() => {
     setExpanded(isRoot || searchResults?.some(result => result.path.startsWith(path)) || false);
-  }, [searchQuery, searchResults, path, isRoot]); // searchQuery と searchResults を依存関係に追加
+  }, [searchQuery, searchResults, path, isRoot]);
 
   const toggleExpanded = useCallback(() => {
     setExpanded(!expanded);
@@ -37,15 +39,13 @@ const Cell: React.FC<CellProps> = ({ element, depth = 0, searchQuery, searchResu
   }, []);
 
   useEffect(() => {
-    // 検索結果が更新され、このCellが親である場合に展開する
     const shouldExpand = searchResults?.some(result => result.path !== path && result.path.startsWith(path));
     if (shouldExpand && !expanded) {
       setExpanded(true);
     }
-  }, [searchResults, currentResultIndex, path, expanded]); // expanded を依存関係に追加
+  }, [searchResults, currentResultIndex, path, expanded]);
 
   useLayoutEffect(() => {
-    // このCell自体が現在の検索結果である場合にスクロールして表示（親コンポーネントで管理されるべき）
     if (searchResults && currentResultIndex !== undefined && searchResults[currentResultIndex]?.path === path && cellRef.current) {
       cellRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       setExpanded(true);
@@ -77,7 +77,7 @@ const Cell: React.FC<CellProps> = ({ element, depth = 0, searchQuery, searchResu
           onKeyDown={handleKeyDown}
         >{expanded ? '-' : '+'}
         </span>
-        {expanded && <ArrayTable array={element} depth={depth + 1} searchQuery={searchQuery} searchResults={searchResults} currentResultIndex={currentResultIndex} searchInputRef={searchInputRef} path={path} />}
+        {expanded && <ArrayTable array={element} depth={depth + 1} searchQuery={searchQuery} searchResults={searchResults} currentResultIndex={currentResultIndex} searchInputRef={searchInputRef} path={path} isEditMode={isEditMode} onDataChange={onDataChange} onDelete={onDelete} />}
       </div>
     );
   } else if (typeof element === 'object' && element !== null) {
@@ -89,11 +89,19 @@ const Cell: React.FC<CellProps> = ({ element, depth = 0, searchQuery, searchResu
           onKeyDown={handleKeyDown}
         >{expanded ? '-' : '+'}</span>
         {expanded &&
-          <ObjectTable member={element} depth={depth + 1} searchQuery={searchQuery} searchResults={searchResults} currentResultIndex={currentResultIndex} searchInputRef={searchInputRef} path={path} />}
+          <ObjectTable member={element} depth={depth + 1} searchQuery={searchQuery} searchResults={searchResults} currentResultIndex={currentResultIndex} searchInputRef={searchInputRef} path={path} isEditMode={isEditMode} onDataChange={onDataChange} onDelete={onDelete} />}
       </div>
     );
   } else {
-    // この値自体が現在の検索結果か？
+    if (isEditMode && onDataChange) {
+      return (
+        <EditableCell
+          value={element}
+          path={path}
+          onCommit={onDataChange}
+        />
+      );
+    }
     const isCurrentValueResult = searchResults && currentResultIndex !== undefined && searchResults[currentResultIndex]?.path === path;
     const valueString = String(element);
     return (

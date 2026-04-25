@@ -335,3 +335,331 @@ tr.object-hdr th {
 .error-panel pre {
   white-space: pre-wrap;
 }
+
+/* 編集モード */
+.editable-cell {
+  cursor: pointer;
+  border-radius: 2px;
+  padding: 0 2px;
+}
+
+.editable-cell:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  outline: 1px dashed rgba(255, 255, 255, 0.3);
+}
+
+.editable-boolean {
+  cursor: pointer;
+}
+
+.editable-boolean:hover {
+  background-color: rgba(86, 156, 214, 0.2);
+}
+
+.editable-input {
+  background: #3c3c3c;
+  color: var(--vscode-editor-foreground);
+  border: 1px solid #007acc;
+  border-radius: 2px;
+  padding: 1px 4px;
+  font-family: inherit;
+  font-size: inherit;
+  min-width: 60px;
+  outline: none;
+}
+
+.editable-input:focus {
+  border-color: #007acc;
+  box-shadow: 0 0 0 1px #007acc;
+}
+
+.key-edit-input {
+  background: #3c3c3c;
+  color: var(--identifier-color);
+  border: 1px solid #007acc;
+  border-radius: 2px;
+  padding: 1px 4px;
+  font-family: inherit;
+  font-size: inherit;
+  min-width: 60px;
+  outline: none;
+  width: 100%;
+}
+
+/* ツールバー */
+.edit-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 8px;
+  background-color: #252526;
+  border-bottom: 1px solid #3c3c3c;
+  flex-shrink: 0;
+}
+
+.toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.toolbar-btn {
+  padding: 4px 10px;
+  border: 1px solid #3c3c3c;
+  border-radius: 3px;
+  background: #333;
+  color: var(--vscode-editor-foreground);
+  cursor: pointer;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.toolbar-btn:hover:not(:disabled) {
+  background: #505050;
+}
+
+.toolbar-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.toolbar-btn.active {
+  background: #094771;
+  border-color: #007acc;
+}
+
+.toolbar-btn.save-btn {
+  background: #0e639c;
+  border-color: #1177bb;
+}
+
+.toolbar-btn.save-btn:hover:not(:disabled) {
+  background: #1177bb;
+}
+
+/* 行操作ボタン */
+.row-actions {
+  border: none !important;
+  width: 28px;
+  min-width: 28px;
+  text-align: center;
+}
+
+.delete-row-btn {
+  background: none;
+  border: none;
+  color: #888;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 2px 4px;
+  border-radius: 2px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+tr:hover .delete-row-btn {
+  opacity: 1;
+}
+
+.delete-row-btn:hover {
+  color: #f48771;
+  background: rgba(244, 135, 113, 0.15);
+}
+
+/* 追加行 */
+.add-row-btn {
+  background: none;
+  border: 1px dashed #555;
+  color: #888;
+  cursor: pointer;
+  padding: 3px 10px;
+  font-size: 12px;
+  border-radius: 3px;
+  width: 100%;
+}
+
+.add-row-btn:hover {
+  border-color: #007acc;
+  color: #007acc;
+}
+
+.add-cell {
+  border: none !important;
+}
+
+.add-property-form {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.add-key-input {
+  background: #3c3c3c;
+  color: var(--identifier-color);
+  border: 1px solid #007acc;
+  border-radius: 2px;
+  padding: 2px 6px;
+  font-size: 12px;
+  outline: none;
+}
+
+.add-confirm-btn,
+.add-cancel-btn {
+  padding: 2px 8px;
+  border: 1px solid #3c3c3c;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.add-confirm-btn {
+  background: #0e639c;
+  color: white;
+}
+
+.add-cancel-btn {
+  background: #333;
+  color: var(--vscode-editor-foreground);
+}
+
+/* Dirty marker */
+.dirty-marker {
+  color: #f48771;
+  font-weight: bold;
+  margin-right: 2px;
+}
+
+/* テキストエディタ */
+.text-editor-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+}
+
+.text-editor-toolbar {
+  display: flex;
+  gap: 4px;
+  padding: 4px 8px;
+  background: #252526;
+  border-bottom: 1px solid #3c3c3c;
+}
+
+.text-editor-btn {
+  padding: 4px 10px;
+  border: 1px solid #3c3c3c;
+  border-radius: 3px;
+  background: #333;
+  color: var(--vscode-editor-foreground);
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.text-editor-btn:hover {
+  background: #505050;
+}
+
+.text-editor-body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.line-numbers {
+  width: 48px;
+  min-width: 48px;
+  background: #1e1e1e;
+  color: #858585;
+  text-align: right;
+  padding: 4px 8px 4px 0;
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  overflow: hidden;
+  user-select: none;
+  border-right: 1px solid #3c3c3c;
+}
+
+.line-number {
+  padding-right: 4px;
+}
+
+.text-editor-textarea {
+  flex: 1;
+  background: #1e1e1e;
+  color: var(--vscode-editor-foreground);
+  border: none;
+  outline: none;
+  resize: none;
+  padding: 4px 8px;
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  tab-size: 2;
+  overflow: auto;
+}
+
+.text-editor-error {
+  padding: 4px 8px;
+  background: #3c1f1e;
+  color: #f48771;
+  font-size: 12px;
+  border-top: 1px solid #5a1d1d;
+}
+
+/* 検索コンテナをツールバー内に統合 */
+.search-container {
+  display: flex;
+  align-items: center;
+  background-color: transparent;
+  padding: 0;
+  border-radius: 0;
+  z-index: 1000;
+}
+
+.search-container input {
+  margin-right: 2px;
+  padding: 4px 8px;
+  border: 1px solid #3c3c3c;
+  border-radius: 3px;
+  line-height: 1.4;
+  background: #3c3c3c;
+  color: var(--vscode-editor-foreground);
+  font-size: 12px;
+  width: 180px;
+}
+
+.search-container button {
+  margin-right: 4px;
+  padding: 4px 8px;
+  border: 1px solid #3c3c3c;
+  border-radius: 3px;
+  cursor: pointer;
+  background-color: #333;
+  color: var(--vscode-editor-foreground);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.search-container button:hover:not(:disabled) {
+  background-color: #505050;
+}
+
+.search-container button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* json-view-content flex fix */
+.json-view-content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+}
+
+.json-viewer-container {
+  flex: 1;
+  overflow: auto;
+  padding-top: 0;
+}

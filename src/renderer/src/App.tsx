@@ -4,6 +4,7 @@ import TabsComponent from './components/Tabs/TabsComponent';
 import JsonViewComponent from './components/JsonView/JsonViewComponent';
 import { v4 as uuidv4 } from 'uuid';
 import { setValueByPath, deleteByPath, addPropertyByPath, addArrayItemByPath, renameKeyByPath, applyOperation, invertOperation, getValueByPath } from './components/Cell/CellUtils';
+import { detectFileType, parseContent, serializeData, validateText, defaultFileName, FileType } from './components/Cell/FileUtils';
 
 declare global {
   interface Window {
@@ -49,7 +50,8 @@ export interface TabState {
   isDirty: boolean;
   history: { undo: HistoryEntry[]; redo: HistoryEntry[] };
   viewMode: ViewMode;
-  originalJson: string;
+  fileType: FileType;
+  originalContent: string;
 }
 
 const MAX_HISTORY = 100;
@@ -100,7 +102,8 @@ function App() {
       isDirty: false,
       history: { undo: [], redo: [] },
       viewMode: 'grid',
-      originalJson: data !== null ? JSON.stringify(data, null, 2) : '',
+      fileType: filePath ? detectFileType(filePath) : 'json',
+      originalContent: data !== null ? serializeData(data, filePath ? detectFileType(filePath) : 'json') : '',
     };
     setTabs(prevTabs => [...prevTabs, newTab]);
     if (makeActive || tabs.length === 0) {
@@ -117,23 +120,25 @@ function App() {
     if (!tab || !tab.jsonData) return false;
 
     try {
-      const content = JSON.stringify(tab.jsonData, null, 2);
+      const content = serializeData(tab.jsonData, tab.fileType);
       const result = await window.electron?.saveJsonFile({
         filePath: tab.filePath,
-        defaultPath: tab.fileName || 'untitled.json',
+        defaultPath: tab.fileName || defaultFileName(tab.fileType),
         content
       });
       if (!result || result.canceled) return false;
 
       const newFileName = getFileName(result.filePath);
+      const newFileType = detectFileType(result.filePath);
       setTabs(prevTabs => prevTabs.map(t => {
         if (t.id !== targetId) return t;
         return {
           ...t,
           filePath: result.filePath,
           fileName: newFileName,
+          fileType: newFileType,
           isDirty: false,
-          originalJson: content
+          originalContent: content
         };
       }));
       return true;
@@ -189,9 +194,10 @@ function App() {
         updateTabData(tabId, { jsonData: { error: `Cannot read file outside Electron environment.` }, filePath: filePath, fileName: `Error - ${getFileName(filePath)}` });
         return;
       }
-      const json = JSON.parse(fileContent);
+      const fileType = detectFileType(filePath);
+      const parsed = parseContent(fileContent, fileType);
       const fileName = getFileName(filePath);
-      updateTabData(tabId, { jsonData: json, filePath: filePath, fileName: fileName, originalJson: JSON.stringify(json, null, 2) });
+      updateTabData(tabId, { jsonData: parsed, filePath: filePath, fileName: fileName, fileType: fileType, originalContent: serializeData(parsed, fileType) });
     } catch (error: any) {
       console.error('Error loading file into tab:', filePath, error);
       const fileName = getFileName(filePath);
@@ -313,15 +319,15 @@ function App() {
   const handleTextEditorChange = useCallback((newText: string) => {
     if (!activeTabId) return;
     try {
-      const parsed = JSON.parse(newText);
+      const parsed = validateText(newText, activeTabData?.fileType || 'json');
       setTabs(prevTabs => prevTabs.map(tab => {
         if (tab.id !== activeTabId) return tab;
         return { ...tab, jsonData: parsed, isDirty: true };
       }));
     } catch {
-      // invalid JSON
+      // invalid content
     }
-  }, [activeTabId]);
+  }, [activeTabId, activeTabData]);
 
   // --- 検索関連処理 ---
   const handleSearch = useCallback(() => {

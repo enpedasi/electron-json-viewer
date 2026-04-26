@@ -178,7 +178,7 @@ const JsonViewComponent: React.FC<JsonViewProps> = ({
             )
           ) : (
             <div className="center-panel">
-              <p>JSONファイルをドラッグ&ドロップしてください</p>
+              <p>JSON/YAMLファイルをドラッグ&ドロップしてください</p>
             </div>
           )
         ) : (
@@ -209,7 +209,7 @@ const JsonViewComponent: React.FC<JsonViewProps> = ({
             </div>
           ) : (
             <div className="center-panel">
-              <p>JSONファイルをドラッグ&ドロップしてください</p>
+              <p>JSON/YAMLファイルをドラッグ&ドロップしてください</p>
             </div>
           )
         )}

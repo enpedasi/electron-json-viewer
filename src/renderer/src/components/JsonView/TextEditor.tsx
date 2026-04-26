@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { TabState } from '../../App'
+import { serializeData, validateText } from '../Cell/FileUtils'
 
 interface TextEditorProps {
   tabData: TabState
@@ -15,7 +16,7 @@ const TextEditor: React.FC<TextEditorProps> = ({ tabData, onChange }) => {
 
   useEffect(() => {
     if (tabData.jsonData !== null && tabData.jsonData !== undefined) {
-      const formatted = JSON.stringify(tabData.jsonData, null, 2)
+      const formatted = serializeData(tabData.jsonData, tabData.fileType)
       setText(formatted)
       setLineCount(formatted.split('\n').length)
       setError(null)
@@ -27,13 +28,13 @@ const TextEditor: React.FC<TextEditorProps> = ({ tabData, onChange }) => {
     setText(newText)
     setLineCount(newText.split('\n').length)
     try {
-      JSON.parse(newText)
+      validateText(newText, tabData.fileType)
       setError(null)
       onChange(newText)
     } catch (err: any) {
       setError(err.message)
     }
-  }, [onChange])
+  }, [onChange, tabData.fileType])
 
   const handleScroll = useCallback(() => {
     if (textareaRef.current && lineNumbersRef.current) {
@@ -43,8 +44,8 @@ const TextEditor: React.FC<TextEditorProps> = ({ tabData, onChange }) => {
 
   const handleFormat = useCallback(() => {
     try {
-      const parsed = JSON.parse(text)
-      const formatted = JSON.stringify(parsed, null, 2)
+      const parsed = validateText(text, tabData.fileType)
+      const formatted = serializeData(parsed, tabData.fileType)
       setText(formatted)
       setLineCount(formatted.split('\n').length)
       setError(null)
@@ -52,11 +53,11 @@ const TextEditor: React.FC<TextEditorProps> = ({ tabData, onChange }) => {
     } catch (err: any) {
       setError(err.message)
     }
-  }, [text, onChange])
+  }, [text, onChange, tabData.fileType])
 
   const handleMinify = useCallback(() => {
     try {
-      const parsed = JSON.parse(text)
+      const parsed = validateText(text, tabData.fileType)
       const minified = JSON.stringify(parsed)
       setText(minified)
       setLineCount(1)
@@ -67,11 +68,15 @@ const TextEditor: React.FC<TextEditorProps> = ({ tabData, onChange }) => {
     }
   }, [text, onChange])
 
+  const label = tabData.fileType === 'yaml' ? 'YAML' : 'JSON'
+
   return (
     <div className="text-editor-container">
       <div className="text-editor-toolbar">
         <button className="text-editor-btn" onClick={handleFormat}>フォーマット</button>
-        <button className="text-editor-btn" onClick={handleMinify}>最小化</button>
+        {tabData.fileType === 'json' && (
+          <button className="text-editor-btn" onClick={handleMinify}>最小化</button>
+        )}
       </div>
       <div className="text-editor-body">
         <div className="line-numbers" ref={lineNumbersRef}>
@@ -90,7 +95,7 @@ const TextEditor: React.FC<TextEditorProps> = ({ tabData, onChange }) => {
       </div>
       {error && (
         <div className="text-editor-error">
-          <span>JSONパースエラー: {error}</span>
+          <span>{label}パースエラー: {error}</span>
         </div>
       )}
     </div>

@@ -101,6 +101,7 @@ ipcMain.handle('save-json-file', async (event, { filePath, defaultPath, content 
         defaultPath: defaultPath || 'untitled.json',
         filters: [
           { name: 'JSON Files', extensions: ['json'] },
+          { name: 'YAML Files', extensions: ['yaml', 'yml'] },
           { name: 'All Files', extensions: ['*'] }
         ]
       })

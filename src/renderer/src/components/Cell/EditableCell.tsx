@@ -7,17 +7,33 @@ interface EditableCellProps {
   onCommit: (path: string, newValue: any) => void
 }
 
+const LINE_HEIGHT = 20
+
+const needsTextarea = (v: any, measuredHeight: number | undefined) => {
+  if (typeof v === 'string' && v.includes('\n')) return true
+  if (measuredHeight !== undefined && measuredHeight > LINE_HEIGHT * 1.2) return true
+  return false
+}
+
 const EditableCell: React.FC<EditableCellProps> = ({ value, path, onCommit }) => {
   const [editing, setEditing] = useState(false)
   const [inputValue, setInputValue] = useState('')
+  const [measuredSize, setMeasuredSize] = useState<{ width: number; height: number } | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const measureRef = useRef<HTMLSpanElement>(null)
+  const useTextarea = needsTextarea(value, measuredSize?.height)
 
   useEffect(() => {
-    if (editing && inputRef.current) {
+    if (!editing) return
+    if (useTextarea && textareaRef.current) {
+      textareaRef.current.focus()
+      textareaRef.current.select()
+    } else if (inputRef.current) {
       inputRef.current.focus()
       inputRef.current.select()
     }
-  }, [editing])
+  }, [editing, useTextarea])
 
   const startEditing = useCallback((e: React.MouseEvent | React.KeyboardEvent) => {
     if (e.type === 'keydown') {
@@ -26,6 +42,12 @@ const EditableCell: React.FC<EditableCellProps> = ({ value, path, onCommit }) =>
       if (ke.nativeEvent.isComposing) return
     }
     e.stopPropagation()
+
+    if (measureRef.current) {
+      const rect = measureRef.current.getBoundingClientRect()
+      setMeasuredSize({ width: rect.width, height: rect.height })
+    }
+
     setEditing(true)
     if (value === null) {
       setInputValue('null')
@@ -43,22 +65,27 @@ const EditableCell: React.FC<EditableCellProps> = ({ value, path, onCommit }) =>
       onCommit(path, newValue)
     }
     setEditing(false)
+    setMeasuredSize(null)
   }, [inputValue, value, path, onCommit])
 
   const cancel = useCallback(() => {
     setEditing(false)
+    setMeasuredSize(null)
   }, [])
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.nativeEvent.isComposing) return
-    if (e.key === 'Enter') {
+    if (useTextarea && e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault()
+      commit()
+    } else if (!useTextarea && e.key === 'Enter') {
       e.preventDefault()
       commit()
     } else if (e.key === 'Escape') {
       e.preventDefault()
       cancel()
     }
-  }, [commit, cancel])
+  }, [commit, cancel, useTextarea])
 
   const handleBlur = useCallback(() => {
     commit()
@@ -98,6 +125,7 @@ const EditableCell: React.FC<EditableCellProps> = ({ value, path, onCommit }) =>
   if (!editing) {
     return (
       <span
+        ref={measureRef}
         className={`value ${typeof value} editable-cell`}
         data-path={path}
         onDoubleClick={startEditing}
@@ -107,6 +135,25 @@ const EditableCell: React.FC<EditableCellProps> = ({ value, path, onCommit }) =>
       >
         {String(value)}
       </span>
+    )
+  }
+
+  if (useTextarea) {
+    const style: React.CSSProperties = measuredSize
+      ? { width: measuredSize.width, minHeight: measuredSize.height }
+      : undefined
+    return (
+      <textarea
+        ref={textareaRef}
+        className="editable-textarea"
+        value={inputValue}
+        onChange={(e) => setInputValue(e.target.value)}
+        onKeyDown={handleKeyDown}
+        onBlur={handleBlur}
+        onClick={(e) => e.stopPropagation()}
+        rows={Math.min(inputValue.split('\n').length, 10)}
+        style={style}
+      />
     )
   }
 

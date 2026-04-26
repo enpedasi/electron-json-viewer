@@ -94,6 +94,8 @@ td.index.null::after {
 
 .value.string {
   color: var(--string-color);
+  white-space: pre-wrap;
+  word-break: break-all;
 }
 
 .value.number {
@@ -423,6 +425,27 @@ tr.object-hdr th {
 }
 
 .editable-input:focus {
+  border-color: #007acc;
+  box-shadow: 0 0 0 1px #007acc;
+}
+
+.editable-textarea {
+  background: #3c3c3c;
+  color: var(--vscode-editor-foreground);
+  border: 1px solid #007acc;
+  border-radius: 2px;
+  padding: 2px 4px;
+  font-family: inherit;
+  font-size: inherit;
+  outline: none;
+  resize: both;
+  min-width: 120px;
+  box-sizing: border-box;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.editable-textarea:focus {
   border-color: #007acc;
   box-shadow: 0 0 0 1px #007acc;
 }

@@ -2,9 +2,28 @@ import yaml from 'js-yaml'
 
 export type FileType = 'json' | 'yaml'
 
-function preprocessYaml(text: string): string {
-  return text.replace(/(?<![!"'])![a-zA-Z][a-zA-Z0-9_:/-]*/g, '')
-}
+const tolerantSchema = yaml.DEFAULT_SCHEMA.extend({
+  explicit: [
+    new yaml.Type('!', {
+      kind: 'scalar',
+      multi: true,
+      resolve: () => true,
+      construct: (data) => data ?? '',
+    }),
+    new yaml.Type('!', {
+      kind: 'mapping',
+      multi: true,
+      resolve: () => true,
+      construct: (data) => data ?? {},
+    }),
+    new yaml.Type('!', {
+      kind: 'sequence',
+      multi: true,
+      resolve: () => true,
+      construct: (data) => data ?? [],
+    }),
+  ],
+})
 
 export function detectFileType(filePath: string | null): FileType {
   if (!filePath) return 'json'
@@ -14,17 +33,17 @@ export function detectFileType(filePath: string | null): FileType {
 }
 
 export function parseContent(rawText: string, fileType: FileType): any {
-  if (fileType === 'yaml') return yaml.load(preprocessYaml(rawText))
+  if (fileType === 'yaml') return yaml.load(rawText, { schema: tolerantSchema })
   return JSON.parse(rawText)
 }
 
 export function serializeData(data: any, fileType: FileType): string {
-  if (fileType === 'yaml') return yaml.dump(data, { indent: 2, lineWidth: -1 })
+  if (fileType === 'yaml') return yaml.dump(data, { indent: 2, lineWidth: -1, schema: tolerantSchema })
   return JSON.stringify(data, null, 2)
 }
 
 export function validateText(text: string, fileType: FileType): any {
-  if (fileType === 'yaml') return yaml.load(preprocessYaml(text))
+  if (fileType === 'yaml') return yaml.load(text, { schema: tolerantSchema })
   return JSON.parse(text)
 }
 

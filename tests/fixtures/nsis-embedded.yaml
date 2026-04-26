@@ -1,0 +1,23 @@
+nsis:
+  script: |-
+    !include "StdUtils.nsh"
+    !macro _isUpdated _a _b _t _f
+      ${StdUtils.TestParameter} $R9 "updated"
+      StrCmp "$R9" "true" `${_t}` `${_f}`
+    !macroend
+    !define isUpdated `"" isUpdated ""`
+
+    !macro addLangs
+      !insertmacro MUI_LANGUAGE "English"
+      !insertmacro MUI_LANGUAGE "Japanese"
+    !macroend
+
+    !include "messages.nsh"
+    !addplugindir /x86-unicode "plugins\x86-unicode"
+
+    Var newStartMenuLink
+    Var oldStartMenuLink
+    Var newDesktopLink
+    Var oldDesktopLink
+
+    !include "common.nsh"

@@ -1,4 +1,4 @@
-import React, { memo, useMemo } from 'react';
+import React, { memo, useMemo, useState, useCallback } from 'react';
 import ResizableTable from './ResizableTable';
 import Cell from './Cell';
 
@@ -10,6 +10,11 @@ interface ObjectTableProps {
   currentResultIndex?: number;
   searchInputRef?: any;
   path: string;
+  isEditMode?: boolean;
+  onDataChange?: (path: string, newValue: any) => void;
+  onDelete?: (path: string) => void;
+  onAddProperty?: (path: string, key: string, value: any) => void;
+  onRenameKey?: (path: string, oldKey: string, newKey: string) => void;
 }
 
 interface Header {
@@ -17,11 +22,17 @@ interface Header {
   thClass: string;
 }
 
-const ObjectTable: React.FC<ObjectTableProps> = ({ member, depth, searchQuery, searchResults, currentResultIndex, searchInputRef, path }) => {
-  const headers: Header[] = useMemo(() => [
-    { header: 'key', thClass: 'object key' },
-    { header: 'val', thClass: 'object value' }
-  ], []);
+const ObjectTable: React.FC<ObjectTableProps> = ({ member, depth, searchQuery, searchResults, currentResultIndex, searchInputRef, path, isEditMode = false, onDataChange, onDelete, onAddProperty, onRenameKey }) => {
+  const headers: Header[] = useMemo(() => {
+    const base = [
+      { header: 'key', thClass: 'object key' },
+      { header: 'val', thClass: 'object value' }
+    ];
+    if (isEditMode) {
+      return [...base, { header: '', thClass: 'edit-actions' }];
+    }
+    return base;
+  }, [isEditMode]);
 
   const highlightText = (text: string, query: string) => {
     if (!query) return text;
@@ -34,6 +45,31 @@ const ObjectTable: React.FC<ObjectTableProps> = ({ member, depth, searchQuery, s
       )
     );
   };
+
+  const [newKeyName, setNewKeyName] = useState('');
+  const [addingNew, setAddingNew] = useState(false);
+  const [editingKey, setEditingKey] = useState<string | null>(null);
+  const [editingKeyValue, setEditingKeyValue] = useState('');
+
+  const handleAddProperty = useCallback(() => {
+    if (!newKeyName.trim()) return;
+    onAddProperty?.(path, newKeyName.trim(), '');
+    setNewKeyName('');
+    setAddingNew(false);
+  }, [newKeyName, path, onAddProperty]);
+
+  const handleStartRename = useCallback((key: string) => {
+    setEditingKey(key);
+    setEditingKeyValue(key);
+  }, []);
+
+  const handleCommitRename = useCallback((oldKey: string) => {
+    if (editingKeyValue.trim() && editingKeyValue !== oldKey) {
+      onRenameKey?.(path, oldKey, editingKeyValue.trim());
+    }
+    setEditingKey(null);
+    setEditingKeyValue('');
+  }, [editingKeyValue, path, onRenameKey]);
 
   return (
     <ResizableTable
@@ -48,8 +84,26 @@ const ObjectTable: React.FC<ObjectTableProps> = ({ member, depth, searchQuery, s
                 searchResults?.some((r, idx) => idx === currentResultIndex && r.path === `${path}.${key}` && r.value === key)
                 ? 'current-highlight'
                 : ''
-             }`}>
-            {highlightText(key, searchQuery || '')}
+              }`}
+              onDoubleClick={() => isEditMode && handleStartRename(key)}
+          >
+            {editingKey === key ? (
+              <input
+                className="key-edit-input"
+                value={editingKeyValue}
+                onChange={(e) => setEditingKeyValue(e.target.value)}
+                onBlur={() => handleCommitRename(key)}
+                onKeyDown={(e) => {
+                  if (e.nativeEvent.isComposing) return
+                  if (e.key === 'Enter') handleCommitRename(key)
+                  if (e.key === 'Escape') setEditingKey(null)
+                }}
+                autoFocus
+                onClick={(e) => e.stopPropagation()}
+              />
+            ) : (
+              isEditMode ? highlightText(key, searchQuery || '') : highlightText(key, searchQuery || '')
+            )}
           </th>
           <td className="object element">
             <Cell
@@ -60,10 +114,49 @@ const ObjectTable: React.FC<ObjectTableProps> = ({ member, depth, searchQuery, s
               currentResultIndex={currentResultIndex}
               searchInputRef={searchInputRef}
               path={`${path}.${key}`}
+              isEditMode={isEditMode}
+              onDataChange={onDataChange}
+              onDelete={onDelete}
             />
           </td>
+          {isEditMode && (
+            <td className="row-actions">
+              <button
+                className="delete-row-btn"
+                onClick={(e) => { e.stopPropagation(); onDelete?.(`${path}.${key}`); }}
+                title="削除"
+              >✕</button>
+            </td>
+          )}
         </tr>
       ))}
+      {isEditMode && (
+        <tr className="object member add-row">
+          <td className="object element add-cell" colSpan={isEditMode ? 3 : 2}>
+            {addingNew ? (
+              <div className="add-property-form">
+                <input
+                  className="add-key-input"
+                  type="text"
+                  value={newKeyName}
+                  onChange={(e) => setNewKeyName(e.target.value)}
+                  placeholder="新しいキー名"
+                  onKeyDown={(e) => {
+                    if (e.nativeEvent.isComposing) return
+                    if (e.key === 'Enter') handleAddProperty()
+                    if (e.key === 'Escape') setAddingNew(false)
+                  }}
+                  autoFocus
+                />
+                <button className="add-confirm-btn" onClick={handleAddProperty}>追加</button>
+                <button className="add-cancel-btn" onClick={() => setAddingNew(false)}>取消</button>
+              </div>
+            ) : (
+              <button className="add-row-btn" onClick={() => setAddingNew(true)}>+ プロパティを追加</button>
+            )}
+          </td>
+        </tr>
+      )}
     </ResizableTable>
   );
 };

@@ -1,99 +1,79 @@
 import React, { useState, useEffect, useCallback } from 'react';
-// import Cell from './components/Cell/Cell'; // JsonViewComponent に移動
 import './App.css';
-import TabsComponent from './components/Tabs/TabsComponent'; // 新規
-import JsonViewComponent from './components/JsonView/JsonViewComponent'; // 新規
-import { v4 as uuidv4 } from 'uuid'; // ID生成用
+import TabsComponent from './components/Tabs/TabsComponent';
+import JsonViewComponent from './components/JsonView/JsonViewComponent';
+import { v4 as uuidv4 } from 'uuid';
+import { setValueByPath, deleteByPath, addPropertyByPath, addArrayItemByPath, renameKeyByPath, applyOperation, invertOperation, getValueByPath } from './components/Cell/CellUtils';
+import { detectFileType, parseContent, serializeData, validateText, defaultFileName, FileType } from './components/Cell/FileUtils';
 
 declare global {
   interface Window {
     electron: {
-      handleFilesOpen: (callback: (event: any, filePaths: string[]) => void) => (() => void) | undefined; // 修正：複数ファイル対応、戻り値の型
+      handleFilesOpen: (callback: (event: any, filePaths: string[]) => void) => (() => void) | undefined;
       readFile: (filePath: string) => Promise<string>;
-      setWindowTitle: (filePath: string | null) => void; // タイトル設定用の型を追加
-      handleFileDrop: (filePath: string) => Promise<string>; // 新しいメソッドの型を追加
-      getFilePath: (file: File) => string; // 新規追加：Fileオブジェクトからパスを取得
-      platform?: string; // platformプロパティを追加（オプション）
-      // 必要ならリスナー削除用の関数も追加
+      setWindowTitle: (filePath: string | null) => void;
+      handleFileDrop: (filePath: string) => Promise<string>;
+      getFilePath: (file: File) => string;
+      saveJsonFile: (opts: { filePath?: string | null; defaultPath?: string; content: string }) => Promise<{ canceled: boolean; filePath?: string }>;
+      showUnsavedDialog: (opts: { fileName: string }) => Promise<{ response: number }>;
+      onShowSearch: (callback: () => void) => (() => void) | undefined;
+      platform?: string;
     }
   }
 }
 
-// TabState インターフェースの定義
-export interface TabState { // export して JsonViewComponent でも使えるようにする
+export type ViewMode = 'grid' | 'text'
+export type EditMode = 'view' | 'edit'
+
+export interface HistoryEntry {
+  op: DataOperation
+  inverseOp: DataOperation
+}
+
+export interface DataOperation {
+  type: 'set' | 'delete' | 'add' | 'rename'
+  path: string
+  value?: any
+  key?: string
+  newKey?: string
+}
+
+export interface TabState {
   id: string;
   filePath: string | null;
-  fileName: string; // 表示用
+  fileName: string;
   jsonData: any;
   searchQuery: string;
   searchResults: Array<{ path: string; value: any }>;
   currentResultIndex: number;
-  // 必要ならスクロール位置なども保存
+  mode: EditMode;
+  isDirty: boolean;
+  history: { undo: HistoryEntry[]; redo: HistoryEntry[] };
+  viewMode: ViewMode;
+  fileType: FileType;
+  originalContent: string;
 }
+
+const MAX_HISTORY = 100;
 
 function App() {
   const [tabs, setTabs] = useState<TabState[]>([]);
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
+  const [searchVisible, setSearchVisible] = useState(false);
 
-  // --- タブ操作 ---
-  const addTab = useCallback((filePath: string | null = null, data: any = null, makeActive = true): string => {
-    const newTabId = uuidv4();
-    // ファイル名取得ロジックを安全に
-    const getFileName = (path: string | null): string => {
-      if (!path) return 'Untitled';
-      try {
-        // Electron環境かどうか、プラットフォームは何かを考慮
-        if (window.electron?.platform) {
-          const separator = window.electron.platform === 'win32' ? '\\' : '/';
-          return path.substring(path.lastIndexOf(separator) + 1);
-        }
-        // ブラウザなどElectron環境外の場合（フォールバック）
-        return path.substring(path.lastIndexOf('/') + 1);
-      } catch (e) {
-        console.error("Error getting file name:", e);
-        return 'Untitled';
+  const getFileName = (path: string | null): string => {
+    if (!path) return 'Untitled';
+    try {
+      if (window.electron?.platform) {
+        const separator = window.electron.platform === 'win32' ? '\\' : '/';
+        return path.substring(path.lastIndexOf(separator) + 1);
       }
-    };
-    const fileName = getFileName(filePath);
-
-    const newTab: TabState = {
-      id: newTabId,
-      filePath: filePath,
-      fileName: fileName,
-      jsonData: data,
-      searchQuery: '',
-      searchResults: [],
-      currentResultIndex: -1, // 初期値は -1 が適切
-    };
-    setTabs(prevTabs => [...prevTabs, newTab]);
-    if (makeActive || tabs.length === 0) { // 最初のタブもアクティブにする
-      setActiveTabId(newTabId);
+      return path.substring(path.lastIndexOf('/') + 1);
+    } catch (e) {
+      console.error("Error getting file name:", e);
+      return 'Untitled';
     }
-    return newTabId;
-  }, [tabs.length]); // tabs.length を依存配列に追加
-
-  const closeTab = useCallback((tabIdToClose: string) => {
-    setTabs(prevTabs => {
-      const indexToClose = prevTabs.findIndex(tab => tab.id === tabIdToClose);
-      if (indexToClose === -1) return prevTabs;
-
-      const newTabs = prevTabs.filter(tab => tab.id !== tabIdToClose);
-
-      if (activeTabId === tabIdToClose) {
-        if (newTabs.length === 0) {
-          setActiveTabId(null);
-          // オプション：最後のタブを閉じたら新しい空タブを追加する
-          // addTab(null, null, true);
-        } else {
-          // 隣接するタブ（優先的に前、なければ後ろ）をアクティブにする
-          const newActiveIndex = Math.max(0, indexToClose -1); // 前のタブ
-          const nextActiveIndex = indexToClose < newTabs.length ? indexToClose : newTabs.length - 1; // 閉じた位置 or 最後のタブ
-          setActiveTabId(newTabs[newActiveIndex < newTabs.length ? newActiveIndex : nextActiveIndex]?.id || null);
-        }
-      }
-      return newTabs;
-    });
-  }, [activeTabId]); // addTab は依存関係から削除
+  };
 
   const updateTabData = useCallback((tabId: string, updates: Partial<Omit<TabState, 'id'>>) => {
     setTabs(prevTabs =>
@@ -103,16 +83,108 @@ function App() {
     );
   }, []);
 
+  // --- アクティブなタブの取得 ---
+  const activeTabData = tabs.find(tab => tab.id === activeTabId);
+
+  // --- タブ操作 ---
+  const addTab = useCallback((filePath: string | null = null, data: any = null, makeActive = true): string => {
+    const newTabId = uuidv4();
+    const fileName = getFileName(filePath);
+    const newTab: TabState = {
+      id: newTabId,
+      filePath: filePath,
+      fileName: fileName,
+      jsonData: data,
+      searchQuery: '',
+      searchResults: [],
+      currentResultIndex: -1,
+      mode: 'view',
+      isDirty: false,
+      history: { undo: [], redo: [] },
+      viewMode: 'grid',
+      fileType: filePath ? detectFileType(filePath) : 'json',
+      originalContent: data !== null ? serializeData(data, filePath ? detectFileType(filePath) : 'json') : '',
+    };
+    setTabs(prevTabs => [...prevTabs, newTab]);
+    if (makeActive || tabs.length === 0) {
+      setActiveTabId(newTabId);
+    }
+    return newTabId;
+  }, [tabs.length]);
+
+  // --- 保存 ---
+  const handleSave = useCallback(async (tabId?: string): Promise<boolean> => {
+    const targetId = tabId || activeTabId;
+    if (!targetId) return false;
+    const tab = tabs.find(t => t.id === targetId);
+    if (!tab || !tab.jsonData) return false;
+
+    try {
+      const content = serializeData(tab.jsonData, tab.fileType);
+      const result = await window.electron?.saveJsonFile({
+        filePath: tab.filePath,
+        defaultPath: tab.fileName || defaultFileName(tab.fileType),
+        content
+      });
+      if (!result || result.canceled) return false;
+
+      const newFileName = getFileName(result.filePath);
+      const newFileType = detectFileType(result.filePath);
+      setTabs(prevTabs => prevTabs.map(t => {
+        if (t.id !== targetId) return t;
+        return {
+          ...t,
+          filePath: result.filePath,
+          fileName: newFileName,
+          fileType: newFileType,
+          isDirty: false,
+          originalContent: content
+        };
+      }));
+      return true;
+    } catch (error) {
+      console.error('Error saving file:', error);
+      return false;
+    }
+  }, [tabs, activeTabId]);
+
+  const closeTabWithCheck = useCallback(async (tabIdToClose: string) => {
+    const tab = tabs.find(t => t.id === tabIdToClose);
+    if (!tab) return;
+
+    if (tab.isDirty && window.electron?.showUnsavedDialog) {
+      const result = await window.electron.showUnsavedDialog({ fileName: tab.fileName });
+      if (result.response === 0) {
+        const saved = await handleSave(tabIdToClose);
+        if (!saved) return;
+      } else if (result.response === 2) {
+        return;
+      }
+    }
+
+    setTabs(prevTabs => {
+      const indexToClose = prevTabs.findIndex(t => t.id === tabIdToClose);
+      if (indexToClose === -1) return prevTabs;
+      const newTabs = prevTabs.filter(t => t.id !== tabIdToClose);
+      if (activeTabId === tabIdToClose) {
+        if (newTabs.length === 0) {
+          setActiveTabId(null);
+        } else {
+          const newActiveIndex = Math.max(0, indexToClose - 1);
+          setActiveTabId(newTabs[newActiveIndex < newTabs.length ? newActiveIndex : newTabs.length - 1]?.id || null);
+        }
+      }
+      return newTabs;
+    });
+  }, [tabs, activeTabId, handleSave]);
 
   // --- ファイル処理 ---
   const loadFileIntoTab = useCallback(async (filePath: string, tabId: string) => {
-     // 既に読み込み済み、または読み込み中の場合はスキップ（オプション）
-     const existingTab = tabs.find(t => t.id === tabId);
-     if (existingTab && existingTab.jsonData) {
-         console.log(`Tab ${tabId} already has data for ${filePath}`);
-         return;
-     }
-
+    const existingTab = tabs.find(t => t.id === tabId);
+    if (existingTab && existingTab.jsonData) {
+      console.log(`Tab ${tabId} already has data for ${filePath}`);
+      return;
+    }
     try {
       let fileContent;
       if (window.electron && window.electron.readFile) {
@@ -122,113 +194,143 @@ function App() {
         updateTabData(tabId, { jsonData: { error: `Cannot read file outside Electron environment.` }, filePath: filePath, fileName: `Error - ${getFileName(filePath)}` });
         return;
       }
-
-      const json = JSON.parse(fileContent);
-      const fileName = getFileName(filePath); // ファイル名を再取得（念のため）
-      updateTabData(tabId, { jsonData: json, filePath: filePath, fileName: fileName });
-
+      const fileType = detectFileType(filePath);
+      const parsed = parseContent(fileContent, fileType);
+      const fileName = getFileName(filePath);
+      updateTabData(tabId, { jsonData: parsed, filePath: filePath, fileName: fileName, fileType: fileType, originalContent: serializeData(parsed, fileType) });
     } catch (error: any) {
       console.error('Error loading file into tab:', filePath, error);
       const fileName = getFileName(filePath);
       updateTabData(tabId, { jsonData: { error: `Failed to load or parse: ${error.message || error}` }, filePath: filePath, fileName: `Error - ${fileName}` });
     }
-  }, [updateTabData, tabs]); // tabs を依存関係に追加
-
-   // ファイル名取得ヘルパー（useCallbackの外で定義しても良い）
-   const getFileName = (path: string | null): string => {
-     if (!path) return 'Untitled';
-     try {
-       if (window.electron?.platform) {
-         const separator = window.electron.platform === 'win32' ? '\\' : '/';
-         return path.substring(path.lastIndexOf(separator) + 1);
-       }
-       return path.substring(path.lastIndexOf('/') + 1);
-     } catch (e) {
-       console.error("Error getting file name:", e);
-       return 'Untitled';
-     }
-   };
+  }, [updateTabData, tabs]);
 
   const handleDrop = useCallback(async (e: DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-
-    // ファイルの処理はPreloadスクリプトが行い、メインプロセス経由で渡されるため、
-    // ここではイベントの伝播を止めるだけでよい。
-    // e.dataTransfer.files からの読み込みは ContextBridge の制限で失敗するため削除。
   }, []);
 
+  // --- 編集モード切替 ---
+  const toggleEditMode = useCallback(() => {
+    if (!activeTabId) return;
+    setTabs(prevTabs => prevTabs.map(tab => {
+      if (tab.id !== activeTabId) return tab;
+      return { ...tab, mode: tab.mode === 'view' ? 'edit' : 'view' };
+    }));
+  }, [activeTabId]);
 
-  // --- 初期化とイベントリスナー ---
-   useEffect(() => {
-    // 初期タブ（空のタブ）
-    if (tabs.length === 0) {
-       addTab(null, null, true);
+  const toggleViewMode = useCallback(() => {
+    if (!activeTabId) return;
+    setTabs(prevTabs => prevTabs.map(tab => {
+      if (tab.id !== activeTabId) return tab;
+      return { ...tab, viewMode: tab.viewMode === 'grid' ? 'text' : 'grid' };
+    }));
+  }, [activeTabId]);
+
+  // --- Undo/Redo ---
+  const handleUndo = useCallback(() => {
+    if (!activeTabId) return;
+    setTabs(prevTabs => prevTabs.map(tab => {
+      if (tab.id !== activeTabId || tab.history.undo.length === 0) return tab;
+      const [latest, ...restUndo] = tab.history.undo;
+      const newJson = applyOperation(tab.jsonData, latest.inverseOp);
+      const redo = [latest, ...tab.history.redo].slice(0, MAX_HISTORY);
+      return { ...tab, jsonData: newJson, history: { undo: restUndo, redo }, isDirty: restUndo.length > 0 };
+    }));
+  }, [activeTabId]);
+
+  const handleRedo = useCallback(() => {
+    if (!activeTabId) return;
+    setTabs(prevTabs => prevTabs.map(tab => {
+      if (tab.id !== activeTabId || tab.history.redo.length === 0) return tab;
+      const [latest, ...restRedo] = tab.history.redo;
+      const newJson = applyOperation(tab.jsonData, latest.op);
+      const undo = [latest, ...tab.history.undo].slice(0, MAX_HISTORY);
+      return { ...tab, jsonData: newJson, history: { undo, redo: restRedo }, isDirty: true };
+    }));
+  }, [activeTabId]);
+
+  // --- データ変更ハンドラ ---
+  const handleDataChange = useCallback((path: string, newValue: any) => {
+    if (!activeTabId) return;
+    setTabs(prevTabs => prevTabs.map(tab => {
+      if (tab.id !== activeTabId) return tab;
+      const op: DataOperation = { type: 'set', path, value: newValue };
+      const inverseOp = invertOperation(tab.jsonData, op);
+      const newJson = applyOperation(tab.jsonData, op);
+      const undo = [{ op, inverseOp }, ...tab.history.undo].slice(0, MAX_HISTORY);
+      return { ...tab, jsonData: newJson, history: { undo, redo: [] }, isDirty: true };
+    }));
+  }, [activeTabId]);
+
+  const handleDelete = useCallback((path: string) => {
+    if (!activeTabId) return;
+    setTabs(prevTabs => prevTabs.map(tab => {
+      if (tab.id !== activeTabId) return tab;
+      const op: DataOperation = { type: 'delete', path };
+      const inverseOp = invertOperation(tab.jsonData, op);
+      const newJson = applyOperation(tab.jsonData, op);
+      const undo = [{ op, inverseOp }, ...tab.history.undo].slice(0, MAX_HISTORY);
+      return { ...tab, jsonData: newJson, history: { undo, redo: [] }, isDirty: true };
+    }));
+  }, [activeTabId]);
+
+  const handleAddProperty = useCallback((path: string, key: string, value: any) => {
+    if (!activeTabId) return;
+    setTabs(prevTabs => prevTabs.map(tab => {
+      if (tab.id !== activeTabId) return tab;
+      const target = path ? getValueByPath(tab.jsonData, path) : tab.jsonData;
+      if (!target || typeof target !== 'object' || Array.isArray(target)) return tab;
+      const newTarget = { ...target, [key]: value };
+      const newJson = path ? setValueByPath(tab.jsonData, path, newTarget) : newTarget;
+      const op: DataOperation = { type: 'add', path, key, value };
+      const inverseOp: DataOperation = { type: 'delete', path: path ? `${path}.${key}` : `.${key}` };
+      const undo = [{ op, inverseOp }, ...tab.history.undo].slice(0, MAX_HISTORY);
+      return { ...tab, jsonData: newJson, history: { undo, redo: [] }, isDirty: true };
+    }));
+  }, [activeTabId]);
+
+  const handleAddArrayItem = useCallback((path: string, value: any) => {
+    if (!activeTabId) return;
+    setTabs(prevTabs => prevTabs.map(tab => {
+      if (tab.id !== activeTabId) return tab;
+      const newJson = addArrayItemByPath(tab.jsonData, path, value);
+      const op: DataOperation = { type: 'add', path, value };
+      const target = path ? getValueByPath(tab.jsonData, path) : tab.jsonData;
+      const idx = Array.isArray(target) ? target.length : 0;
+      const inverseOp: DataOperation = { type: 'delete', path: `${path}[${idx}]` };
+      const undo = [{ op, inverseOp }, ...tab.history.undo].slice(0, MAX_HISTORY);
+      return { ...tab, jsonData: newJson, history: { undo, redo: [] }, isDirty: true };
+    }));
+  }, [activeTabId]);
+
+  const handleRenameKey = useCallback((path: string, oldKey: string, newKey: string) => {
+    if (!activeTabId) return;
+    setTabs(prevTabs => prevTabs.map(tab => {
+      if (tab.id !== activeTabId) return tab;
+      const newJson = renameKeyByPath(tab.jsonData, path, oldKey, newKey);
+      const op: DataOperation = { type: 'rename', path, key: oldKey, newKey };
+      const inverseOp: DataOperation = { type: 'rename', path, key: newKey, newKey: oldKey };
+      const undo = [{ op, inverseOp }, ...tab.history.undo].slice(0, MAX_HISTORY);
+      return { ...tab, jsonData: newJson, history: { undo, redo: [] }, isDirty: true };
+    }));
+  }, [activeTabId]);
+
+  const handleTextEditorChange = useCallback((newText: string) => {
+    if (!activeTabId) return;
+    try {
+      const parsed = validateText(newText, activeTabData?.fileType || 'json');
+      setTabs(prevTabs => prevTabs.map(tab => {
+        if (tab.id !== activeTabId) return tab;
+        return { ...tab, jsonData: parsed, isDirty: true };
+      }));
+    } catch {
+      // invalid content
     }
+  }, [activeTabId, activeTabData]);
 
-    const handleDragOver = (e: DragEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-    };
-
-     // document 全体で drag/drop を受け付ける
-     document.addEventListener('dragover', handleDragOver);
-     document.addEventListener('drop', handleDrop);
-
-     // file-opened イベント（アプリ起動時やDockからのファイルオープン）
-     let removeFilesOpenListener: (() => void) | undefined;
-     if (window.electron?.handleFilesOpen) {
-         removeFilesOpenListener = window.electron.handleFilesOpen((event, filePaths) => {
-             console.log('Files opened via event:', filePaths);
-             filePaths.forEach((filePath, index) => {
-                 // 既に開いているタブがないか確認（オプション）
-                 const existingTab = tabs.find(tab => tab.filePath === filePath);
-                 if (existingTab) {
-                     setActiveTabId(existingTab.id); // 既存タブをアクティブにする
-                     if (index === 0) { /* only log once */ console.log(`Tab for ${filePath} already exists.`); }
-                 } else {
-                     // 最初のファイルで、かつ現在のタブが1つだけで未読み込みのUntitledだった場合、上書きする
-                     if (index === 0 && tabs.length === 1 && tabs[0].filePath === null && tabs[0].jsonData === null) {
-                         const targetTabId = tabs[0].id;
-                         loadFileIntoTab(filePath, targetTabId);
-                         setActiveTabId(targetTabId);
-                     } else {
-                         const makeActive = index === 0; // 最初のファイルだけアクティブにする
-                         const newTabId = addTab(filePath, null, makeActive);
-                         loadFileIntoTab(filePath, newTabId);
-                     }
-                 }
-             });
-         });
-     }
-
-    return () => {
-      document.removeEventListener('dragover', handleDragOver);
-      document.removeEventListener('drop', handleDrop);
-      // クリーンアップ関数を呼ぶ
-      if (removeFilesOpenListener && typeof removeFilesOpenListener === 'function') {
-        removeFilesOpenListener();
-      }
-    };
-   }, [addTab, handleDrop, loadFileIntoTab, tabs]); // tabs を依存配列に追加（既存タブチェックのため）
-
-  // --- ウィンドウタイトル更新 ---
-  useEffect(() => {
-    const activeTab = tabs.find(tab => tab.id === activeTabId);
-    // main プロセスに filePath を渡してタイトルを設定してもらう
-    if (window.electron?.setWindowTitle) {
-      window.electron.setWindowTitle(activeTab?.filePath ?? null);
-    } else {
-        // Electron外の場合のフォールバック
-        document.title = activeTab ? activeTab.fileName : 'JSON Grid Viewer';
-    }
-  }, [activeTabId, tabs]);
-
-  // --- アクティブなタブの取得 ---
-  const activeTabData = tabs.find(tab => tab.id === activeTabId);
-
-  // --- 検索関連処理（アクティブタブに対して行う） ---
-   const handleSearch = useCallback(() => {
+  // --- 検索関連処理 ---
+  const handleSearch = useCallback(() => {
     if (!activeTabData) return;
     const results = searchJson(activeTabData.jsonData, activeTabData.searchQuery);
     updateTabData(activeTabData.id, { searchResults: results, currentResultIndex: results.length > 0 ? 0 : -1 });
@@ -242,28 +344,130 @@ function App() {
 
   const clearSearch = useCallback(() => {
     if (!activeTabData) return;
-    // 検索クエリ、結果、インデックスをリセット
     updateTabData(activeTabData.id, { searchQuery: '', searchResults: [], currentResultIndex: -1 });
   }, [activeTabData, updateTabData]);
 
-   const handleSearchInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-     if (!activeTabData) return;
-     const query = e.target.value;
-     // 検索クエリのみ更新し、結果はEnterかボタンで実行
-     updateTabData(activeTabData.id, { searchQuery: query, searchResults: [], currentResultIndex: -1 }); // 入力変更で結果はクリア
-   }, [activeTabData, updateTabData]);
+  const handleSearchInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!activeTabData) return;
+    const query = e.target.value;
+    updateTabData(activeTabData.id, { searchQuery: query, searchResults: [], currentResultIndex: -1 });
+  }, [activeTabData, updateTabData]);
 
   const handleSearchKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.nativeEvent.isComposing || e.key !== 'Enter') return;
-    if (!activeTabData || !activeTabData.searchQuery) return; // クエリがない場合は何もしない
-
-    // Enterキーで検索実行または次の結果へ
+    if (!activeTabData || !activeTabData.searchQuery) return;
     if (activeTabData.searchResults.length > 0) {
-        handleNextResult(); // 既に結果がある場合は次へ
+      handleNextResult();
     } else {
-        handleSearch(); // 結果がない場合は検索実行
+      handleSearch();
     }
   }, [activeTabData, handleSearch, handleNextResult]);
+
+  // --- 初期化とイベントリスナー ---
+  useEffect(() => {
+    if (tabs.length === 0) {
+      addTab(null, null, true);
+    }
+
+    const handleDragOver = (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+    };
+
+    document.addEventListener('dragover', handleDragOver);
+    document.addEventListener('drop', handleDrop);
+
+    let removeFilesOpenListener: (() => void) | undefined;
+    if (window.electron?.handleFilesOpen) {
+      removeFilesOpenListener = window.electron.handleFilesOpen((event, filePaths) => {
+        console.log('Files opened via event:', filePaths);
+        filePaths.forEach((filePath, index) => {
+          const existingTab = tabs.find(tab => tab.filePath === filePath);
+          if (existingTab) {
+            setActiveTabId(existingTab.id);
+            if (index === 0) { console.log(`Tab for ${filePath} already exists.`); }
+          } else {
+            const isFirstFile = index === 0;
+            const emptyUntitled = tabs.find(t =>
+              t.filePath === null && t.jsonData === null && !t.isDirty
+            );
+            if (isFirstFile && emptyUntitled) {
+              loadFileIntoTab(filePath, emptyUntitled.id);
+              setActiveTabId(emptyUntitled.id);
+            } else {
+              const makeActive = index === 0;
+              const newTabId = addTab(filePath, null, makeActive);
+              loadFileIntoTab(filePath, newTabId);
+            }
+          }
+        });
+      });
+    }
+
+    let removeShowSearchListener: (() => void) | undefined;
+    if (window.electron?.onShowSearch) {
+      removeShowSearchListener = window.electron.onShowSearch(() => {
+        setSearchVisible(true);
+      });
+    }
+
+    return () => {
+      document.removeEventListener('dragover', handleDragOver);
+      document.removeEventListener('drop', handleDrop);
+      if (removeFilesOpenListener && typeof removeFilesOpenListener === 'function') {
+        removeFilesOpenListener();
+      }
+      if (removeShowSearchListener) {
+        removeShowSearchListener();
+      }
+    };
+  }, [addTab, handleDrop, loadFileIntoTab, tabs]);
+
+  // --- キーボードショートカット ---
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.nativeEvent.isComposing) return;
+      const mod = e.ctrlKey || e.metaKey;
+
+      if (mod && e.key === 's') {
+        e.preventDefault();
+        handleSave();
+      }
+      if (mod && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        handleUndo();
+      }
+      if (mod && e.key === 'z' && e.shiftKey) {
+        e.preventDefault();
+        handleRedo();
+      }
+      if (mod && e.key === 'y') {
+        e.preventDefault();
+        handleRedo();
+      }
+      if (mod && e.key === 'f') {
+        e.preventDefault();
+        setSearchVisible(true);
+      }
+      if (e.key === 'Escape' && searchVisible) {
+        setSearchVisible(false);
+        clearSearch();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [handleSave, handleUndo, handleRedo, searchVisible, clearSearch]);
+
+  // --- ウィンドウタイトル更新 ---
+  useEffect(() => {
+    const activeTab = tabs.find(tab => tab.id === activeTabId);
+    if (window.electron?.setWindowTitle) {
+      window.electron.setWindowTitle(activeTab?.filePath ?? null);
+    } else {
+      document.title = activeTab ? activeTab.fileName : 'JSON Grid Viewer';
+    }
+  }, [activeTabId, tabs]);
 
   // --- レンダリング ---
   return (
@@ -272,27 +476,41 @@ function App() {
         tabs={tabs}
         activeTabId={activeTabId}
         onSelectTab={setActiveTabId}
-        onCloseTab={closeTab}
-        onAddTab={() => addTab(null, null, true)} // 「+」ボタンで空タブ追加
+        onCloseTab={closeTabWithCheck}
+        onAddTab={() => addTab(null, null, true)}
+        onToggleEditMode={toggleEditMode}
+        onToggleViewMode={toggleViewMode}
+        activeTabMode={activeTabData?.mode || 'view'}
+        activeTabViewMode={activeTabData?.viewMode || 'grid'}
       />
-      <div className="json-view-area"> {/* タブ下のコンテンツエリア */}
+      <div className="json-view-area">
         {activeTabData ? (
           <JsonViewComponent
-            key={activeTabData.id} // タブ切り替え時にコンポーネントを再生成して状態をリセット
+            key={activeTabData.id}
             tabData={activeTabData}
-            // onDataChange={(updates) => updateTabData(activeTabData.id, updates)} // JsonViewComponent が直接状態を変える必要はない
+            searchVisible={searchVisible}
+            onSearchVisibleChange={setSearchVisible}
             onSearchInputChange={handleSearchInputChange}
             onSearchKeyDown={handleSearchKeyDown}
             onSearchExecute={handleSearch}
             onNextResult={handleNextResult}
             onClearSearch={clearSearch}
+            onDataChange={handleDataChange}
+            onDelete={handleDelete}
+            onAddProperty={handleAddProperty}
+            onAddArrayItem={handleAddArrayItem}
+            onRenameKey={handleRenameKey}
+            onSave={() => handleSave()}
+            onUndo={handleUndo}
+            onRedo={handleRedo}
+            onTextEditorChange={handleTextEditorChange}
           />
         ) : (
           <div className="center-panel">
             {tabs.length > 0 ? (
-                <p>タブを選択してください。</p>
+              <p>タブを選択してください。</p>
             ) : (
-                <p>ファイルを開くか、ドラッグ＆ドロップ、または「+」ボタンで新しいタブを開始してください。</p>
+              <p>ファイルを開くか、ドラッグ＆ドロップ、または「+」ボタンで新しいタブを開始してください。</p>
             )}
           </div>
         )}
@@ -303,17 +521,13 @@ function App() {
 
 function searchJson(json: any, query: string) {
   const results: { path: string; value: any; }[] = [];
-  const searchQuery = query.toLowerCase(); // クエリを小文字に変換
+  const searchQuery = query.toLowerCase();
   const search = (obj: any, path = '') => {
     if (typeof obj === 'object' && obj !== null) {
-      // Note: A more robust solution might handle circular references.
-      // Limit recursion depth to prevent stack overflow with large/deep objects
-      const currentDepth = path.split('.').length + path.split('[').length -1;
-      if (currentDepth > 50) { // Adjust depth limit as needed
-        // console.warn(`Search depth limit reached at path: ${path}`);
+      const currentDepth = path.split('.').length + path.split('[').length - 1;
+      if (currentDepth > 50) {
         return;
       }
-
       for (const key in obj) {
         if (obj.hasOwnProperty(key)) {
           const value = obj[key];

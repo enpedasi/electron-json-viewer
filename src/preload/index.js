@@ -16,51 +16,65 @@ const api = {
   readFile: async (filePath) => {
     return await ipcRenderer.invoke('read-file', filePath)
   },
-  // handleFileOpen: (callback) => ipcRenderer.on('file-opened', callback), // 古いもの
   handleFilesOpen: (callback) => {
     const listener = (event, filePaths) => callback(event, filePaths)
     ipcRenderer.on('files-opened', listener)
     return () => ipcRenderer.removeListener('files-opened', listener)
   },
-  // ウィンドウタイトルを設定する関数
   setWindowTitle: (filePath) => {
     ipcRenderer.send('set-window-title', filePath)
   },
-  // ファイルのドラッグ&ドロップを処理する専用関数
   handleFileDrop: async (filePath) => {
-    // ファイルパスをメインプロセスに送信し、タイトル更新を要求
     ipcRenderer.send('set-window-title', filePath)
-    // ファイルの内容を読み込む
     return await ipcRenderer.invoke('read-file', filePath)
+  },
+  saveJsonFile: async ({ filePath, defaultPath, content }) => {
+    return await ipcRenderer.invoke('save-json-file', { filePath, defaultPath, content })
+  },
+  showUnsavedDialog: async ({ fileName }) => {
+    return await ipcRenderer.invoke('show-unsaved-dialog', { fileName })
+  },
+  onShowSearch: (callback) => {
+    const listener = () => callback()
+    ipcRenderer.on('show-search', listener)
+    return () => ipcRenderer.removeListener('show-search', listener)
   }
 }
 
-window.addEventListener('dragover', (e) => {
-  e.preventDefault()
-}, true)
+window.addEventListener(
+  'dragover',
+  (e) => {
+    e.preventDefault()
+  },
+  true
+)
 
-window.addEventListener('drop', (e) => {
-  e.preventDefault()
+window.addEventListener(
+  'drop',
+  (e) => {
+    e.preventDefault()
 
-  const files = e.dataTransfer.files
-  const filePaths = []
-  if (files.length > 0) {
-    for (const file of files) {
-      try {
-        const filePath = webUtils.getPathForFile(file)
-        if (filePath) {
-          filePaths.push(filePath)
+    const files = e.dataTransfer.files
+    const filePaths = []
+    if (files.length > 0) {
+      for (const file of files) {
+        try {
+          const filePath = webUtils.getPathForFile(file)
+          if (filePath) {
+            filePaths.push(filePath)
+          }
+        } catch (error) {
+          console.error('Error getting path for file:', error)
         }
-      } catch (error) {
-        console.error('Error getting path for file:', error)
       }
     }
-  }
 
-  if (filePaths.length > 0) {
-    ipcRenderer.send('file-dropped', filePaths)
-  }
-}, true) // キャプチャフェーズで確実に捕捉
+    if (filePaths.length > 0) {
+      ipcRenderer.send('file-dropped', filePaths)
+    }
+  },
+  true
+) // キャプチャフェーズで確実に捕捉
 
 // contextIsolation が有効な場合（推奨）
 if (process.contextIsolated) {

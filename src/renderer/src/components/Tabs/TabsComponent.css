@@ -4,12 +4,11 @@
 .tabs-container {
     width: 100%;
     background-color: var(--ev-c-black-mute);
-    /* 少し明るい背景 */
     padding: 5px 5px 0 5px;
-    /* 上左右に少しパディング、下はなし */
     box-sizing: border-box;
     flex-shrink: 0;
-    /* 高さが縮まないように */
+    display: flex;
+    align-items: flex-end;
 }
 
 .tabs-list {
@@ -18,25 +17,12 @@
     margin: 0;
     display: flex;
     flex-wrap: nowrap;
-    /* タブを折り返さない */
     overflow-x: auto;
-    /* 横スクロールを可能にする */
-    /* スクロールバーのスタイル（オプション） */
-    scrollbar-width: thin;
-    scrollbar-color: var(--ev-c-gray-1) var(--ev-c-black-mute);
+    scrollbar-width: none;
 }
 
 .tabs-list::-webkit-scrollbar {
-    height: 5px;
-}
-
-.tabs-list::-webkit-scrollbar-track {
-    background: var(--ev-c-black-mute);
-}
-
-.tabs-list::-webkit-scrollbar-thumb {
-    background-color: var(--ev-c-gray-1);
-    border-radius: 3px;
+    display: none;
 }
 
 
@@ -157,4 +143,36 @@
     background-color: var(--ev-c-gray-2);
     color: var(--ev-c-text-1);
     border-color: var(--ev-c-gray-1);
+}
+
+.tab-mode-buttons {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    margin-left: auto;
+    padding-bottom: 4px;
+    flex-shrink: 0;
+}
+
+.tab-mode-btn {
+    padding: 4px 10px;
+    border: 1px solid var(--ev-c-gray-2);
+    border-radius: 3px;
+    background: var(--ev-c-gray-3);
+    color: var(--ev-c-text-2);
+    cursor: pointer;
+    font-size: 11px;
+    white-space: nowrap;
+    line-height: 1.3;
+}
+
+.tab-mode-btn:hover {
+    background: var(--ev-c-gray-2);
+    color: var(--ev-c-text-1);
+}
+
+.tab-mode-btn.active {
+    background: #094771;
+    border-color: #007acc;
+    color: var(--ev-c-text-1);
 }

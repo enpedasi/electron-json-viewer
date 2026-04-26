@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, ipcMain } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
 import { join } from 'path'
 import icon from '../../resources/icon.png?asset'
 import fs from 'fs'
@@ -38,6 +38,13 @@ function createWindow() {
   mainWindow.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)
     return { action: 'deny' }
+  })
+
+  mainWindow.webContents.on('before-input-event', (event, input) => {
+    if (input.key === 'f' && (input.control || input.meta) && !input.shift && !input.alt) {
+      mainWindow.webContents.send('show-search')
+      event.preventDefault()
+    }
   })
 
   // 開発環境と本番環境でのURL/ファイル読み込み
@@ -83,6 +90,46 @@ ipcMain.handle('read-file', (event, filePath) => {
     console.error('Error reading file:', error)
     throw error
   }
+})
+
+// ファイル保存ハンドラー
+ipcMain.handle('save-json-file', async (event, { filePath, defaultPath, content }) => {
+  try {
+    let targetPath = filePath
+    if (!targetPath) {
+      const result = await dialog.showSaveDialog(mainWindow, {
+        defaultPath: defaultPath || 'untitled.json',
+        filters: [
+          { name: 'JSON Files', extensions: ['json'] },
+          { name: 'YAML Files', extensions: ['yaml', 'yml'] },
+          { name: 'All Files', extensions: ['*'] }
+        ]
+      })
+      if (result.canceled) return { canceled: true }
+      targetPath = result.filePath
+    }
+    const jsonContent = typeof content === 'string' ? content : JSON.stringify(content, null, 2)
+    fs.writeFileSync(targetPath, jsonContent, 'utf8')
+    return { canceled: false, filePath: targetPath }
+  } catch (error) {
+    console.error('Error saving file:', error)
+    throw error
+  }
+})
+
+// 未保存確認ダイアログ
+ipcMain.handle('show-unsaved-dialog', async (event, { fileName }) => {
+  const result = await dialog.showMessageBox(mainWindow, {
+    type: 'warning',
+    title: '未保存の変更',
+    message: `"${fileName}" に未保存の変更があります。`,
+    detail: '保存せずに閉じますか？',
+    buttons: ['保存', '保存せずに閉じる', 'キャンセル'],
+    defaultId: 0,
+    cancelId: 2,
+    noLink: true
+  })
+  return { response: result.response }
 })
 
 // アプリケーション初期化

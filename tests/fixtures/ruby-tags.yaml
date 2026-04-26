@@ -1,0 +1,8 @@
+---
+- name: plain yaml
+  items:
+    - apple
+    - banana
+- ruby_obj: !ruby/object:MIME::Type
+    content-type: text/plain
+    encoding: base64

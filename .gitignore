@@ -3,3 +3,5 @@ dist
 out
 .DS_Store
 *.log*
+src-tauri/target/
+.specstory/.what-is-this.md

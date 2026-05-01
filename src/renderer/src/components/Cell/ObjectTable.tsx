@@ -1,75 +1,93 @@
-import React, { memo, useMemo, useState, useCallback } from 'react';
-import ResizableTable from './ResizableTable';
-import Cell from './Cell';
+import React, { memo, useMemo, useState, useCallback } from 'react'
+import ResizableTable from './ResizableTable'
+import Cell from './Cell'
 
 interface ObjectTableProps {
-  member: Record<string, any>;
-  depth: number;
-  searchQuery?: string;
-  searchResults?: any[];
-  currentResultIndex?: number;
-  searchInputRef?: any;
-  path: string;
-  isEditMode?: boolean;
-  onDataChange?: (path: string, newValue: any) => void;
-  onDelete?: (path: string) => void;
-  onAddProperty?: (path: string, key: string, value: any) => void;
-  onRenameKey?: (path: string, oldKey: string, newKey: string) => void;
+  member: Record<string, any>
+  depth: number
+  searchQuery?: string
+  searchResults?: any[]
+  currentResultIndex?: number
+  searchInputRef?: any
+  path: string
+  isEditMode?: boolean
+  onDataChange?: (path: string, newValue: any) => void
+  onDelete?: (path: string) => void
+  onAddProperty?: (path: string, key: string, value: any) => void
+  onRenameKey?: (path: string, oldKey: string, newKey: string) => void
 }
 
 interface Header {
-  header: string;
-  thClass: string;
+  header: string
+  thClass: string
 }
 
-const ObjectTable: React.FC<ObjectTableProps> = ({ member, depth, searchQuery, searchResults, currentResultIndex, searchInputRef, path, isEditMode = false, onDataChange, onDelete, onAddProperty, onRenameKey }) => {
+const ObjectTable: React.FC<ObjectTableProps> = ({
+  member,
+  depth,
+  searchQuery,
+  searchResults,
+  currentResultIndex,
+  searchInputRef,
+  path,
+  isEditMode = false,
+  onDataChange,
+  onDelete,
+  onAddProperty,
+  onRenameKey
+}) => {
   const headers: Header[] = useMemo(() => {
     const base = [
       { header: 'key', thClass: 'object key' },
       { header: 'val', thClass: 'object value' }
-    ];
+    ]
     if (isEditMode) {
-      return [...base, { header: '', thClass: 'edit-actions' }];
+      return [...base, { header: '', thClass: 'edit-actions' }]
     }
-    return base;
-  }, [isEditMode]);
+    return base
+  }, [isEditMode])
 
   const highlightText = (text: string, query: string) => {
-    if (!query) return text;
-    const parts = text.split(new RegExp(`(${query})`, 'gi'));
+    if (!query) return text
+    const parts = text.split(new RegExp(`(${query})`, 'gi'))
     return parts.map((part, index) =>
       part.toLowerCase() === query.toLowerCase() ? (
-        <span key={index} className="current-highlight">{part}</span>
+        <span key={index} className="current-highlight">
+          {part}
+        </span>
       ) : (
         part
       )
-    );
-  };
+    )
+  }
 
-  const [newKeyName, setNewKeyName] = useState('');
-  const [addingNew, setAddingNew] = useState(false);
-  const [editingKey, setEditingKey] = useState<string | null>(null);
-  const [editingKeyValue, setEditingKeyValue] = useState('');
+  const [newKeyName, setNewKeyName] = useState('')
+  const [addingNew, setAddingNew] = useState(false)
+  const [editingKey, setEditingKey] = useState<string | null>(null)
+  const [editingKeyValue, setEditingKeyValue] = useState('')
 
   const handleAddProperty = useCallback(() => {
-    if (!newKeyName.trim()) return;
-    onAddProperty?.(path, newKeyName.trim(), '');
-    setNewKeyName('');
-    setAddingNew(false);
-  }, [newKeyName, path, onAddProperty]);
+    if (!newKeyName.trim()) return
+    onAddProperty?.(path, newKeyName.trim(), '')
+    setNewKeyName('')
+    setAddingNew(false)
+  }, [newKeyName, path, onAddProperty])
 
   const handleStartRename = useCallback((key: string) => {
-    setEditingKey(key);
-    setEditingKeyValue(key);
-  }, []);
+    setEditingKey(key)
+    setEditingKeyValue(key)
+  }, [])
 
-  const handleCommitRename = useCallback((oldKey: string) => {
-    if (editingKeyValue.trim() && editingKeyValue !== oldKey) {
-      onRenameKey?.(path, oldKey, editingKeyValue.trim());
-    }
-    setEditingKey(null);
-    setEditingKeyValue('');
-  }, [editingKeyValue, path, onRenameKey]);
+  const handleCommitRename = useCallback(
+    (oldKey: string) => {
+      if (editingKeyValue.trim() && editingKeyValue !== oldKey) {
+        onRenameKey?.(path, oldKey, editingKeyValue.trim())
+      }
+      setEditingKey(null)
+      setEditingKeyValue('')
+    },
+    [editingKeyValue, path, onRenameKey]
+  )
 
   return (
     <ResizableTable
@@ -80,12 +98,16 @@ const ObjectTable: React.FC<ObjectTableProps> = ({ member, depth, searchQuery, s
     >
       {Object.entries(member).map(([key, val]) => (
         <tr key={key} className="object member">
-          <th className={`object key ${
-                searchResults?.some((r, idx) => idx === currentResultIndex && r.path === `${path}.${key}` && r.value === key)
+          <th
+            className={`object key ${
+              searchResults?.some(
+                (r, idx) =>
+                  idx === currentResultIndex && r.path === `${path}.${key}` && r.value === key
+              )
                 ? 'current-highlight'
                 : ''
-              }`}
-              onDoubleClick={() => isEditMode && handleStartRename(key)}
+            }`}
+            onDoubleClick={() => isEditMode && handleStartRename(key)}
           >
             {editingKey === key ? (
               <input
@@ -101,8 +123,10 @@ const ObjectTable: React.FC<ObjectTableProps> = ({ member, depth, searchQuery, s
                 autoFocus
                 onClick={(e) => e.stopPropagation()}
               />
+            ) : isEditMode ? (
+              highlightText(key, searchQuery || '')
             ) : (
-              isEditMode ? highlightText(key, searchQuery || '') : highlightText(key, searchQuery || '')
+              highlightText(key, searchQuery || '')
             )}
           </th>
           <td className="object element">
@@ -123,9 +147,14 @@ const ObjectTable: React.FC<ObjectTableProps> = ({ member, depth, searchQuery, s
             <td className="row-actions">
               <button
                 className="delete-row-btn"
-                onClick={(e) => { e.stopPropagation(); onDelete?.(`${path}.${key}`); }}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onDelete?.(`${path}.${key}`)
+                }}
                 title="削除"
-              >✕</button>
+              >
+                ✕
+              </button>
             </td>
           )}
         </tr>
@@ -148,17 +177,23 @@ const ObjectTable: React.FC<ObjectTableProps> = ({ member, depth, searchQuery, s
                   }}
                   autoFocus
                 />
-                <button className="add-confirm-btn" onClick={handleAddProperty}>追加</button>
-                <button className="add-cancel-btn" onClick={() => setAddingNew(false)}>取消</button>
+                <button className="add-confirm-btn" onClick={handleAddProperty}>
+                  追加
+                </button>
+                <button className="add-cancel-btn" onClick={() => setAddingNew(false)}>
+                  取消
+                </button>
               </div>
             ) : (
-              <button className="add-row-btn" onClick={() => setAddingNew(true)}>+ プロパティを追加</button>
+              <button className="add-row-btn" onClick={() => setAddingNew(true)}>
+                + プロパティを追加
+              </button>
             )}
           </td>
         </tr>
       )}
     </ResizableTable>
-  );
-};
+  )
+}
 
-export default memo(ObjectTable);
+export default memo(ObjectTable)

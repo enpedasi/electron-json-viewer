@@ -35,28 +35,31 @@ const EditableCell: React.FC<EditableCellProps> = ({ value, path, onCommit }) =>
     }
   }, [editing, useTextarea])
 
-  const startEditing = useCallback((e: React.MouseEvent | React.KeyboardEvent) => {
-    if (e.type === 'keydown') {
-      const ke = e as React.KeyboardEvent
-      if (ke.key !== 'Enter' && ke.key !== 'F2') return
-      if (ke.nativeEvent.isComposing) return
-    }
-    e.stopPropagation()
+  const startEditing = useCallback(
+    (e: React.MouseEvent | React.KeyboardEvent) => {
+      if (e.type === 'keydown') {
+        const ke = e as React.KeyboardEvent
+        if (ke.key !== 'Enter' && ke.key !== 'F2') return
+        if (ke.nativeEvent.isComposing) return
+      }
+      e.stopPropagation()
 
-    if (measureRef.current) {
-      const rect = measureRef.current.getBoundingClientRect()
-      setMeasuredSize({ width: rect.width, height: rect.height })
-    }
+      if (measureRef.current) {
+        const rect = measureRef.current.getBoundingClientRect()
+        setMeasuredSize({ width: rect.width, height: rect.height })
+      }
 
-    setEditing(true)
-    if (value === null) {
-      setInputValue('null')
-    } else if (typeof value === 'boolean') {
-      setInputValue(String(value))
-    } else {
-      setInputValue(String(value))
-    }
-  }, [value])
+      setEditing(true)
+      if (value === null) {
+        setInputValue('null')
+      } else if (typeof value === 'boolean') {
+        setInputValue(String(value))
+      } else {
+        setInputValue(String(value))
+      }
+    },
+    [value]
+  )
 
   const commit = useCallback(() => {
     const originalType = value === null ? 'null' : typeof value
@@ -73,19 +76,22 @@ const EditableCell: React.FC<EditableCellProps> = ({ value, path, onCommit }) =>
     setMeasuredSize(null)
   }, [])
 
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.nativeEvent.isComposing) return
-    if (useTextarea && e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-      e.preventDefault()
-      commit()
-    } else if (!useTextarea && e.key === 'Enter') {
-      e.preventDefault()
-      commit()
-    } else if (e.key === 'Escape') {
-      e.preventDefault()
-      cancel()
-    }
-  }, [commit, cancel, useTextarea])
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.nativeEvent.isComposing) return
+      if (useTextarea && e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault()
+        commit()
+      } else if (!useTextarea && e.key === 'Enter') {
+        e.preventDefault()
+        commit()
+      } else if (e.key === 'Escape') {
+        e.preventDefault()
+        cancel()
+      }
+    },
+    [commit, cancel, useTextarea]
+  )
 
   const handleBlur = useCallback(() => {
     commit()

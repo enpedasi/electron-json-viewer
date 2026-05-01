@@ -29,7 +29,12 @@ export function setValueByPath(root: any, path: string, newValue: any): any {
   return setValueRecursive(root, segments, 0, newValue)
 }
 
-function setValueRecursive(obj: any, segments: (string | number)[], index: number, newValue: any): any {
+function setValueRecursive(
+  obj: any,
+  segments: (string | number)[],
+  index: number,
+  newValue: any
+): any {
   if (index === segments.length) return newValue
   const seg = segments[index]
   if (Array.isArray(obj)) {
@@ -99,7 +104,12 @@ export function addArrayItemByPath(root: any, path: string, value: any, index?: 
   return path ? setValueByPath(root, path, newArr) : newArr
 }
 
-export function renameKeyByPath(root: any, parentPath: string, oldKey: string, newKey: string): any {
+export function renameKeyByPath(
+  root: any,
+  parentPath: string,
+  oldKey: string,
+  newKey: string
+): any {
   const target = parentPath ? getValueByPath(root, parentPath) : root
   if (target == null || typeof target !== 'object' || Array.isArray(target)) return root
   if (!(oldKey in target)) return root
@@ -135,7 +145,10 @@ export function applyOperation(root: any, op: import('../../App').DataOperation)
   }
 }
 
-export function invertOperation(root: any, op: import('../../App').DataOperation): import('../../App').DataOperation {
+export function invertOperation(
+  root: any,
+  op: import('../../App').DataOperation
+): import('../../App').DataOperation {
   switch (op.type) {
     case 'set': {
       const oldValue = getValueByPath(root, op.path)

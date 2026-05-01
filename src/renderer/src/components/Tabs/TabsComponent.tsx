@@ -1,23 +1,23 @@
-import React from 'react';
-import './TabsComponent.css';
+import React from 'react'
+import './TabsComponent.css'
 
 interface TabInfo {
-  id: string;
-  fileName: string;
-  filePath: string | null;
-  isDirty?: boolean;
+  id: string
+  fileName: string
+  filePath: string | null
+  isDirty?: boolean
 }
 
 interface TabsProps {
-  tabs: TabInfo[];
-  activeTabId: string | null;
-  onSelectTab: (tabId: string) => void;
-  onCloseTab: (tabId: string) => void;
-  onAddTab: () => void;
-  onToggleEditMode?: () => void;
-  onToggleViewMode?: () => void;
-  activeTabMode?: string;
-  activeTabViewMode?: string;
+  tabs: TabInfo[]
+  activeTabId: string | null
+  onSelectTab: (tabId: string) => void
+  onCloseTab: (tabId: string) => void
+  onAddTab: () => void
+  onToggleEditMode?: () => void
+  onToggleViewMode?: () => void
+  activeTabMode?: string
+  activeTabViewMode?: string
 }
 
 const TabsComponent: React.FC<TabsProps> = ({
@@ -29,9 +29,9 @@ const TabsComponent: React.FC<TabsProps> = ({
   onToggleEditMode,
   onToggleViewMode,
   activeTabMode = 'view',
-  activeTabViewMode = 'grid',
+  activeTabViewMode = 'grid'
 }) => {
-  const isEditMode = activeTabMode === 'edit';
+  const isEditMode = activeTabMode === 'edit'
 
   return (
     <div className="tabs-container">
@@ -51,8 +51,8 @@ const TabsComponent: React.FC<TabsProps> = ({
               <button
                 className="close-tab-btn"
                 onClick={(e) => {
-                  e.stopPropagation();
-                  onCloseTab(tab.id);
+                  e.stopPropagation()
+                  onCloseTab(tab.id)
                 }}
                 aria-label={`Close tab ${tab.fileName}`}
               >
@@ -82,7 +82,7 @@ const TabsComponent: React.FC<TabsProps> = ({
         </button>
       </div>
     </div>
-  );
-};
+  )
+}
 
-export default TabsComponent;
+export default TabsComponent

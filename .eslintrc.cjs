@@ -1,10 +1,21 @@
 module.exports = {
+  env: {
+    browser: true,
+    node: true,
+    es2020: true
+  },
+  parserOptions: {
+    ecmaVersion: 'latest',
+    sourceType: 'module',
+    ecmaFeatures: {
+      jsx: true
+    }
+  },
   extends: [
     'eslint:recommended',
     'plugin:react/recommended',
     'plugin:react/jsx-runtime',
-    '@electron-toolkit',
-    '@electron-toolkit/eslint-config-prettier'
+    'prettier'
   ],
   overrides: [
     {

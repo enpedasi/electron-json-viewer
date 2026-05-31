@@ -1,59 +1,40 @@
 {
   "name": "json-grid",
   "version": "1.0.0",
-  "description": "An Electron application with React",
-  "main": "./out/main/index.js",
+  "description": "A Tauri application with React",
   "author": "example.com",
-  "homepage": "https://electron-vite.org",
   "scripts": {
     "format": "prettier --write .",
     "lint": "eslint . --ext .js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts --fix",
-    "start": "electron-vite preview",
-    "dev": "electron-vite dev",
-    "build": "electron-vite build",
-    "postinstall": "electron-builder install-app-deps",
-    "build:unpack": "npm run build && electron-builder --dir",
-    "build:win": "npm run build && electron-builder --win",
-    "build:mac": "npm run build && electron-builder --mac",
-    "build:linux": "npm run build && electron-builder --linux"
+    "tauri": "tauri",
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "web:dev": "vite",
+    "web:build": "vite build",
+    "web:preview": "vite preview"
   },
   "dependencies": {
-    "@electron-toolkit/preload": "^3.0.2",
-    "@electron-toolkit/utils": "^4.0.0",
+    "@tauri-apps/api": "^2.11.0",
+    "@tauri-apps/plugin-dialog": "^2.7.0",
+    "@tauri-apps/plugin-fs": "^2.5.0",
+    "@tauri-apps/plugin-os": "^2.3.2",
     "@types/js-yaml": "^4.0.9",
     "@types/uuid": "^10.0.0",
     "js-yaml": "^4.1.1",
     "uuid": "^11.1.0"
   },
-  "overrides": {
-    "ajv@^6.0.0": "6.14.0",
-    "flatted": "3.4.2",
-    "minimatch@^3.0.0": "3.1.4",
-    "minimatch@^5.0.0": "5.1.8",
-    "minimatch@^9.0.0": "9.0.7",
-    "minimatch@^10.0.0": "10.2.3",
-    "picomatch": "4.0.4",
-    "tar": "7.5.11",
-    "rollup": "4.59.0"
-  },
-  "optionalDependencies": {
-    "@rollup/rollup-darwin-arm64": "4.59.0",
-    "@rollup/rollup-darwin-x64": "4.59.0",
-    "@rollup/rollup-linux-x64-gnu": "4.59.0",
-    "@rollup/rollup-win32-x64-msvc": "4.59.0"
-  },
   "devDependencies": {
-    "@electron-toolkit/eslint-config": "^1.0.2",
-    "@electron-toolkit/eslint-config-prettier": "^2.0.0",
+    "@tauri-apps/cli": "^2.11.0",
+    "@typescript-eslint/eslint-plugin": "^8.59.1",
+    "@typescript-eslint/parser": "^8.59.1",
     "@vitejs/plugin-react": "^5.1.2",
-    "electron": "^39.8.1",
-    "electron-builder": "^26.8.1",
-    "electron-vite": "^5.0.0",
     "eslint": "^8.56.0",
+    "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-react": "^7.37.5",
     "prettier": "^3.2.4",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "typescript": "^5.8.3",
     "vite": "^7.3.0"
   }
 }

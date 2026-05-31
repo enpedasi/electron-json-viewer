@@ -1,29 +1,40 @@
-import React from 'react';
-import Cell from './Cell';
+import React from 'react'
+import Cell from './Cell'
 
 interface Column {
-  header: string;
+  header: string
 }
 
 interface ArrayRowProps {
-  element: any;
-  index: number;
-  columns?: Column[];
-  depth: number;
-  searchQuery?: string;
-  searchResults?: any[];
-  currentResultIndex?: number;
-  searchInputRef?: any;
-  path: string;
-  isEditMode?: boolean;
-  onDataChange?: (path: string, newValue: any) => void;
-  onDelete?: (path: string) => void;
+  element: any
+  index: number
+  columns?: Column[]
+  depth: number
+  searchQuery?: string
+  searchResults?: any[]
+  currentResultIndex?: number
+  searchInputRef?: any
+  path: string
+  isEditMode?: boolean
+  onDataChange?: (path: string, newValue: any) => void
+  onDelete?: (path: string) => void
 }
 
-const ArrayRow: React.FC<ArrayRowProps> = ({ element, index, columns = [], depth, searchQuery, searchResults, currentResultIndex, searchInputRef, path, isEditMode = false, onDataChange, onDelete }) => {
-  const typeOfEl = Array.isArray(element) ? 'array' :
-    element === null ? 'null' :
-    typeof element;
+const ArrayRow: React.FC<ArrayRowProps> = ({
+  element,
+  index,
+  columns = [],
+  depth,
+  searchQuery,
+  searchResults,
+  currentResultIndex,
+  searchInputRef,
+  path,
+  isEditMode = false,
+  onDataChange,
+  onDelete
+}) => {
+  const typeOfEl = Array.isArray(element) ? 'array' : element === null ? 'null' : typeof element
 
   return (
     <tr className={`array-el ${typeOfEl}`}>
@@ -65,13 +76,18 @@ const ArrayRow: React.FC<ArrayRowProps> = ({ element, index, columns = [], depth
         <td className="row-actions">
           <button
             className="delete-row-btn"
-            onClick={(e) => { e.stopPropagation(); onDelete?.(path); }}
+            onClick={(e) => {
+              e.stopPropagation()
+              onDelete?.(path)
+            }}
             title="削除"
-          >✕</button>
+          >
+            ✕
+          </button>
         </td>
       )}
     </tr>
-  );
-};
+  )
+}
 
-export default ArrayRow;
+export default ArrayRow

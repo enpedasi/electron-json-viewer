@@ -8,21 +8,21 @@ const tolerantSchema = yaml.DEFAULT_SCHEMA.extend({
       kind: 'scalar',
       multi: true,
       resolve: () => true,
-      construct: (data) => data ?? '',
+      construct: (data) => data ?? ''
     }),
     new yaml.Type('!', {
       kind: 'mapping',
       multi: true,
       resolve: () => true,
-      construct: (data) => data ?? {},
+      construct: (data) => data ?? {}
     }),
     new yaml.Type('!', {
       kind: 'sequence',
       multi: true,
       resolve: () => true,
-      construct: (data) => data ?? [],
-    }),
-  ],
+      construct: (data) => data ?? []
+    })
+  ]
 })
 
 export function detectFileType(filePath: string | null): FileType {
@@ -38,7 +38,8 @@ export function parseContent(rawText: string, fileType: FileType): any {
 }
 
 export function serializeData(data: any, fileType: FileType): string {
-  if (fileType === 'yaml') return yaml.dump(data, { indent: 2, lineWidth: -1, schema: tolerantSchema })
+  if (fileType === 'yaml')
+    return yaml.dump(data, { indent: 2, lineWidth: -1, schema: tolerantSchema })
   return JSON.stringify(data, null, 2)
 }
 

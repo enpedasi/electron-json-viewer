@@ -23,18 +23,21 @@ const TextEditor: React.FC<TextEditorProps> = ({ tabData, onChange }) => {
     }
   }, [tabData.id])
 
-  const handleChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const newText = e.target.value
-    setText(newText)
-    setLineCount(newText.split('\n').length)
-    try {
-      validateText(newText, tabData.fileType)
-      setError(null)
-      onChange(newText)
-    } catch (err: any) {
-      setError(err.message)
-    }
-  }, [onChange, tabData.fileType])
+  const handleChange = useCallback(
+    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      const newText = e.target.value
+      setText(newText)
+      setLineCount(newText.split('\n').length)
+      try {
+        validateText(newText, tabData.fileType)
+        setError(null)
+        onChange(newText)
+      } catch (err: any) {
+        setError(err.message)
+      }
+    },
+    [onChange, tabData.fileType]
+  )
 
   const handleScroll = useCallback(() => {
     if (textareaRef.current && lineNumbersRef.current) {
@@ -73,15 +76,21 @@ const TextEditor: React.FC<TextEditorProps> = ({ tabData, onChange }) => {
   return (
     <div className="text-editor-container">
       <div className="text-editor-toolbar">
-        <button className="text-editor-btn" onClick={handleFormat}>フォーマット</button>
+        <button className="text-editor-btn" onClick={handleFormat}>
+          フォーマット
+        </button>
         {tabData.fileType === 'json' && (
-          <button className="text-editor-btn" onClick={handleMinify}>最小化</button>
+          <button className="text-editor-btn" onClick={handleMinify}>
+            最小化
+          </button>
         )}
       </div>
       <div className="text-editor-body">
         <div className="line-numbers" ref={lineNumbersRef}>
           {Array.from({ length: lineCount }, (_, i) => (
-            <div key={i} className="line-number">{i + 1}</div>
+            <div key={i} className="line-number">
+              {i + 1}
+            </div>
           ))}
         </div>
         <textarea
@@ -95,7 +104,9 @@ const TextEditor: React.FC<TextEditorProps> = ({ tabData, onChange }) => {
       </div>
       {error && (
         <div className="text-editor-error">
-          <span>{label}パースエラー: {error}</span>
+          <span>
+            {label}パースエラー: {error}
+          </span>
         </div>
       )}
     </div>

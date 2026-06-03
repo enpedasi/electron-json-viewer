@@ -1,6 +1,7 @@
 import React, { memo, useMemo, useState, useCallback } from 'react'
 import ResizableTable from './ResizableTable'
 import Cell from './Cell'
+import { KeyFilterState } from './keyFilter'
 
 interface ObjectTableProps {
   member: Record<string, any>
@@ -17,6 +18,14 @@ interface ObjectTableProps {
   onRenameKey?: (path: string, oldKey: string, newKey: string) => void
   onExpandedChange?: (path: string, expanded: boolean) => void
   expandedPaths?: string[]
+  keyFilterMode?: boolean
+  keyFilters?: KeyFilterState
+  onBeginKeyFilterSelection?: (path: string, allKeys: string[]) => void
+  onDraftKeySelectedChange?: (path: string, key: string, selected: boolean) => void
+  onDraftKeyFilterQueryChange?: (path: string, query: string) => void
+  onApplyKeyFilter?: (path: string, allKeys: string[]) => void
+  onCancelKeyFilterSelection?: (path: string) => void
+  onClearKeyFilter?: (path: string) => void
 }
 
 interface Header {
@@ -38,7 +47,15 @@ const ObjectTable: React.FC<ObjectTableProps> = ({
   onAddProperty,
   onRenameKey,
   onExpandedChange,
-  expandedPaths = []
+  expandedPaths = [],
+  keyFilterMode = false,
+  keyFilters = {},
+  onBeginKeyFilterSelection,
+  onDraftKeySelectedChange,
+  onDraftKeyFilterQueryChange,
+  onApplyKeyFilter,
+  onCancelKeyFilterSelection,
+  onClearKeyFilter
 }) => {
   const headers: Header[] = useMemo(() => {
     const base = [
@@ -147,6 +164,14 @@ const ObjectTable: React.FC<ObjectTableProps> = ({
               onDelete={onDelete}
               onExpandedChange={onExpandedChange}
               expandedPaths={expandedPaths}
+              keyFilterMode={keyFilterMode}
+              keyFilters={keyFilters}
+              onBeginKeyFilterSelection={onBeginKeyFilterSelection}
+              onDraftKeySelectedChange={onDraftKeySelectedChange}
+              onDraftKeyFilterQueryChange={onDraftKeyFilterQueryChange}
+              onApplyKeyFilter={onApplyKeyFilter}
+              onCancelKeyFilterSelection={onCancelKeyFilterSelection}
+              onClearKeyFilter={onClearKeyFilter}
             />
           </td>
           {isEditMode && (

@@ -154,6 +154,10 @@
     flex-shrink: 0;
 }
 
+.save-btn {
+    margin-right: 8px;
+}
+
 .tab-mode-btn {
     padding: 4px 10px;
     border: 1px solid var(--ev-c-gray-2);

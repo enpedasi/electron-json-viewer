@@ -20,12 +20,24 @@ import {
   validateText,
   defaultFileName,
   getFileNameFromPath,
-  FileType
+  FileType,
+  tryParseClipboard
 } from './components/Cell/FileUtils'
 import { collectExpandablePaths, updateExpandedPaths } from './components/Cell/expandedPaths'
 import { updateTabScrollTop } from './components/JsonView/scrollPosition'
 import { planOpenedFiles } from './components/Tabs/openFiles'
 import { getDesktopApi, initTauriApi } from './platform'
+import { searchJson } from './components/JsonView/searchJson'
+import {
+  KeyFilterState,
+  beginKeyFilterSelection,
+  setDraftKeySelected,
+  setDraftQuery,
+  applyDraftKeyFilter,
+  cancelKeyFilterSelection,
+  clearAppliedKeyFilter,
+  createEmptyKeyFilterState
+} from './components/Cell/keyFilter'
 
 export type ViewMode = 'grid' | 'text'
 export type EditMode = 'view' | 'edit'
@@ -59,6 +71,8 @@ export interface TabState {
   originalContent: string
   expandedPaths: string[]
   scrollTop: number
+  keyFilterMode: boolean
+  keyFilters: KeyFilterState
 }
 
 const MAX_HISTORY = 100
@@ -102,7 +116,9 @@ function App() {
         fileType,
         originalContent: data !== null ? serializeData(data, fileType) : '',
         expandedPaths: [],
-        scrollTop: 0
+        scrollTop: 0,
+        keyFilterMode: false,
+        keyFilters: createEmptyKeyFilterState()
       }
     },
     []
@@ -124,6 +140,60 @@ function App() {
     },
     [createTabState, tabs.length]
   )
+
+  const handlePasteToNewTab = useCallback(async () => {
+    try {
+      const text = await navigator.clipboard.readText()
+      if (!text.trim()) return
+      const result = tryParseClipboard(text)
+      if (result) {
+        const activeTab = tabsRef.current.find((t) => t.id === activeTabId)
+        const isEmptyTab =
+          activeTab &&
+          activeTab.filePath === null &&
+          activeTab.jsonData === null &&
+          !activeTab.isDirty
+        if (isEmptyTab) {
+          updateTabData(activeTab!.id, {
+            jsonData: result.data,
+            fileType: result.fileType,
+            originalContent: text,
+            fileName: `Pasted ${result.fileType.toUpperCase()}`
+          })
+        } else {
+          const newTabId = addTab(null, result.data, true)
+          setTabs((prevTabs) =>
+            prevTabs.map((tab) =>
+              tab.id === newTabId
+                ? {
+                    ...tab,
+                    fileType: result.fileType,
+                    originalContent: text,
+                    fileName: `Pasted ${result.fileType.toUpperCase()}`
+                  }
+                : tab
+            )
+          )
+        }
+      } else {
+        const activeTab = tabsRef.current.find((t) => t.id === activeTabId)
+        const isEmptyTab =
+          activeTab &&
+          activeTab.filePath === null &&
+          activeTab.jsonData === null &&
+          !activeTab.isDirty
+        if (isEmptyTab) {
+          updateTabData(activeTab!.id, {
+            jsonData: { error: 'Clipboard content is not valid JSON or YAML' }
+          })
+        } else {
+          addTab(null, { error: 'Clipboard content is not valid JSON or YAML' }, true)
+        }
+      }
+    } catch (err) {
+      console.error('Failed to read clipboard:', err)
+    }
+  }, [activeTabId, addTab, updateTabData])
 
   // --- 保存 ---
   const handleSave = useCallback(
@@ -234,7 +304,9 @@ function App() {
           fileType: fileType,
           originalContent: serializeData(parsed, fileType),
           expandedPaths: [],
-          scrollTop: 0
+          scrollTop: 0,
+          keyFilterMode: false,
+          keyFilters: createEmptyKeyFilterState()
         })
       } catch (error: any) {
         console.error('Error loading file into tab:', filePath, error)
@@ -307,6 +379,116 @@ function App() {
       })
     )
   }, [activeTabId])
+
+  const toggleKeyFilterMode = useCallback(() => {
+    if (!activeTabId) return
+    setTabs((prevTabs) =>
+      prevTabs.map((tab) => {
+        if (tab.id !== activeTabId) return tab
+        return { ...tab, keyFilterMode: !tab.keyFilterMode }
+      })
+    )
+  }, [activeTabId])
+
+  const handleBeginKeyFilterSelection = useCallback(
+    (path: string, allKeys: string[]) => {
+      if (!activeTabId) return
+      setTabs((prevTabs) =>
+        prevTabs.map((tab) => {
+          if (tab.id !== activeTabId) return tab
+          return {
+            ...tab,
+            keyFilters: beginKeyFilterSelection(tab.keyFilters, path, allKeys)
+          }
+        })
+      )
+    },
+    [activeTabId]
+  )
+
+  const handleDraftKeySelectedChange = useCallback(
+    (path: string, key: string, selected: boolean) => {
+      if (!activeTabId) return
+      setTabs((prevTabs) =>
+        prevTabs.map((tab) => {
+          if (tab.id !== activeTabId) return tab
+          return {
+            ...tab,
+            keyFilters: setDraftKeySelected(tab.keyFilters, path, key, selected)
+          }
+        })
+      )
+    },
+    [activeTabId]
+  )
+
+  const handleDraftKeyFilterQueryChange = useCallback(
+    (path: string, query: string) => {
+      if (!activeTabId) return
+      setTabs((prevTabs) =>
+        prevTabs.map((tab) => {
+          if (tab.id !== activeTabId) return tab
+          return {
+            ...tab,
+            keyFilters: setDraftQuery(tab.keyFilters, path, query)
+          }
+        })
+      )
+    },
+    [activeTabId]
+  )
+
+  const handleApplyKeyFilter = useCallback(
+    (path: string, allKeys: string[]) => {
+      if (!activeTabId) return
+      setTabs((prevTabs) =>
+        prevTabs.map((tab) => {
+          if (tab.id !== activeTabId) return tab
+          return {
+            ...tab,
+            keyFilters: applyDraftKeyFilter(tab.keyFilters, path, allKeys),
+            searchResults: [],
+            currentResultIndex: -1
+          }
+        })
+      )
+    },
+    [activeTabId]
+  )
+
+  const handleCancelKeyFilterSelection = useCallback(
+    (path: string) => {
+      if (!activeTabId) return
+      setTabs((prevTabs) =>
+        prevTabs.map((tab) => {
+          if (tab.id !== activeTabId) return tab
+          return {
+            ...tab,
+            keyFilters: cancelKeyFilterSelection(tab.keyFilters, path)
+          }
+        })
+      )
+    },
+    [activeTabId]
+  )
+
+  const handleClearKeyFilter = useCallback(
+    (path: string) => {
+      if (!activeTabId) return
+      setTabs((prevTabs) =>
+        prevTabs.map((tab) => {
+          if (tab.id !== activeTabId) return tab
+          return {
+            ...tab,
+            keyFilters: clearAppliedKeyFilter(tab.keyFilters, path),
+            searchResults: [],
+            currentResultIndex: -1
+          }
+        })
+      )
+    },
+    [activeTabId]
+  )
 
   // --- Undo/Redo ---
   const handleUndo = useCallback(() => {
@@ -489,7 +671,11 @@ function App() {
   // --- 検索関連処理 ---
   const handleSearch = useCallback(() => {
     if (!activeTabData) return
-    const results = searchJson(activeTabData.jsonData, activeTabData.searchQuery)
+    const results = searchJson(
+      activeTabData.jsonData,
+      activeTabData.searchQuery,
+      activeTabData.keyFilters
+    )
     updateTabData(activeTabData.id, {
       searchResults: results,
       currentResultIndex: results.length > 0 ? 0 : -1
@@ -642,6 +828,7 @@ function App() {
         onAddTab={() => addTab(null, null, true)}
         onToggleEditMode={toggleEditMode}
         onToggleViewMode={toggleViewMode}
+        onSave={() => handleSave()}
         activeTabMode={activeTabData?.mode || 'view'}
         activeTabViewMode={activeTabData?.viewMode || 'grid'}
       />
@@ -669,6 +856,14 @@ function App() {
             onExpandedChange={handleExpandedChange}
             onScrollPositionChange={handleScrollPositionChange}
             onExpandAll={handleExpandAll}
+            onToggleKeyFilterMode={toggleKeyFilterMode}
+            onBeginKeyFilterSelection={handleBeginKeyFilterSelection}
+            onDraftKeySelectedChange={handleDraftKeySelectedChange}
+            onDraftKeyFilterQueryChange={handleDraftKeyFilterQueryChange}
+            onApplyKeyFilter={handleApplyKeyFilter}
+            onCancelKeyFilterSelection={handleCancelKeyFilterSelection}
+            onClearKeyFilter={handleClearKeyFilter}
+            onPasteTab={handlePasteToNewTab}
           />
         ) : (
           <div className="center-panel">
@@ -684,35 +879,6 @@ function App() {
       </div>
     </div>
   )
-}
-
-function searchJson(json: any, query: string) {
-  const results: { path: string; value: any }[] = []
-  const searchQuery = query.toLowerCase()
-  const search = (obj: any, path = '') => {
-    if (typeof obj === 'object' && obj !== null) {
-      const currentDepth = path.split('.').length + path.split('[').length - 1
-      if (currentDepth > 50) {
-        return
-      }
-      for (const key in obj) {
-        if (obj.hasOwnProperty(key)) {
-          const value = obj[key]
-          const currentPath = Array.isArray(obj) ? `${path}[${key}]` : `${path}.${key}`
-          if (key.toLowerCase().includes(searchQuery)) {
-            results.push({ path: currentPath, value: key })
-          }
-          if (typeof value === 'object') {
-            search(value, currentPath)
-          } else if (String(value).toLowerCase().includes(searchQuery)) {
-            results.push({ path: currentPath, value })
-          }
-        }
-      }
-    }
-  }
-  search(json)
-  return results
 }
 
 export default App

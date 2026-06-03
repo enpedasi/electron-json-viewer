@@ -57,3 +57,15 @@ export function getFileNameFromPath(filePath: string | null): string {
   const normalizedPath = filePath.replace(/\\/g, '/')
   return normalizedPath.substring(normalizedPath.lastIndexOf('/') + 1) || 'Untitled'
 }
+
+export function tryParseClipboard(text: string): { data: any; fileType: FileType } | null {
+  try {
+    return { data: JSON.parse(text), fileType: 'json' }
+  } catch {
+    try {
+      return { data: yaml.load(text, { schema: tolerantSchema }), fileType: 'yaml' }
+    } catch {
+      return null
+    }
+  }
+}

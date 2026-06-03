@@ -3,6 +3,7 @@ import ArrayTable from './ArrayTable'
 import ObjectTable from './ObjectTable'
 import EditableCell from './EditableCell'
 import { isPathExpanded } from './expandedPaths'
+import { KeyFilterState } from './keyFilter'
 
 interface CellProps {
   element: any
@@ -18,6 +19,14 @@ interface CellProps {
   onDelete?: (path: string) => void
   onExpandedChange?: (path: string, expanded: boolean) => void
   expandedPaths?: string[]
+  keyFilterMode?: boolean
+  keyFilters?: KeyFilterState
+  onBeginKeyFilterSelection?: (path: string, allKeys: string[]) => void
+  onDraftKeySelectedChange?: (path: string, key: string, selected: boolean) => void
+  onDraftKeyFilterQueryChange?: (path: string, query: string) => void
+  onApplyKeyFilter?: (path: string, allKeys: string[]) => void
+  onCancelKeyFilterSelection?: (path: string) => void
+  onClearKeyFilter?: (path: string) => void
 }
 
 const Cell: React.FC<CellProps> = ({
@@ -33,7 +42,15 @@ const Cell: React.FC<CellProps> = ({
   onDataChange,
   onDelete,
   onExpandedChange,
-  expandedPaths = []
+  expandedPaths = [],
+  keyFilterMode = false,
+  keyFilters = {},
+  onBeginKeyFilterSelection,
+  onDraftKeySelectedChange,
+  onDraftKeyFilterQueryChange,
+  onApplyKeyFilter,
+  onCancelKeyFilterSelection,
+  onClearKeyFilter
 }) => {
   const cellRef = useRef<HTMLDivElement>(null)
   const shouldAutoExpand =
@@ -106,6 +123,14 @@ const Cell: React.FC<CellProps> = ({
             onDelete={onDelete}
             onExpandedChange={onExpandedChange}
             expandedPaths={expandedPaths}
+            keyFilterMode={keyFilterMode}
+            keyFilters={keyFilters}
+            onBeginKeyFilterSelection={onBeginKeyFilterSelection}
+            onDraftKeySelectedChange={onDraftKeySelectedChange}
+            onDraftKeyFilterQueryChange={onDraftKeyFilterQueryChange}
+            onApplyKeyFilter={onApplyKeyFilter}
+            onCancelKeyFilterSelection={onCancelKeyFilterSelection}
+            onClearKeyFilter={onClearKeyFilter}
           />
         )}
       </div>
@@ -131,6 +156,14 @@ const Cell: React.FC<CellProps> = ({
             onDelete={onDelete}
             onExpandedChange={onExpandedChange}
             expandedPaths={expandedPaths}
+            keyFilterMode={keyFilterMode}
+            keyFilters={keyFilters}
+            onBeginKeyFilterSelection={onBeginKeyFilterSelection}
+            onDraftKeySelectedChange={onDraftKeySelectedChange}
+            onDraftKeyFilterQueryChange={onDraftKeyFilterQueryChange}
+            onApplyKeyFilter={onApplyKeyFilter}
+            onCancelKeyFilterSelection={onCancelKeyFilterSelection}
+            onClearKeyFilter={onClearKeyFilter}
           />
         )}
       </div>

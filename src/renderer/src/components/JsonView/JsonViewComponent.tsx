@@ -1,8 +1,9 @@
-import React, { useRef, useEffect, useLayoutEffect, useCallback } from 'react'
+import React, { useRef, useEffect, useLayoutEffect, useCallback, useState } from 'react'
 import Cell from '../Cell/Cell'
 import TextEditor from './TextEditor'
 import { TabState } from '../../App'
 import '../../App.css'
+import { hasAnyActiveKeyFilter, applyKeyFiltersToData } from '../Cell/keyFilter'
 
 interface JsonViewProps {
   tabData: TabState
@@ -25,6 +26,14 @@ interface JsonViewProps {
   onExpandedChange?: (path: string, expanded: boolean) => void
   onScrollPositionChange?: (scrollTop: number) => void
   onExpandAll?: () => void
+  onToggleKeyFilterMode?: () => void
+  onBeginKeyFilterSelection?: (path: string, allKeys: string[]) => void
+  onDraftKeySelectedChange?: (path: string, key: string, selected: boolean) => void
+  onDraftKeyFilterQueryChange?: (path: string, query: string) => void
+  onApplyKeyFilter?: (path: string, allKeys: string[]) => void
+  onCancelKeyFilterSelection?: (path: string) => void
+  onClearKeyFilter?: (path: string) => void
+  onPasteTab?: () => void
 }
 
 const JsonViewComponent: React.FC<JsonViewProps> = ({
@@ -47,7 +56,15 @@ const JsonViewComponent: React.FC<JsonViewProps> = ({
   onTextEditorChange,
   onExpandedChange,
   onScrollPositionChange,
-  onExpandAll
+  onExpandAll,
+  onToggleKeyFilterMode,
+  onBeginKeyFilterSelection,
+  onDraftKeySelectedChange,
+  onDraftKeyFilterQueryChange,
+  onApplyKeyFilter,
+  onCancelKeyFilterSelection,
+  onClearKeyFilter,
+  onPasteTab
 }) => {
   const searchInputRef = useRef<HTMLInputElement>(null)
   const jsonViewerContainerRef = useRef<HTMLDivElement>(null)
@@ -203,6 +220,15 @@ const JsonViewComponent: React.FC<JsonViewProps> = ({
             <button className="floating-btn" onClick={onExpandAll} title="全て展開">
               全て展開
             </button>
+            <button
+              className={`floating-btn ${tabData.keyFilterMode ? 'active' : ''}`}
+              onClick={onToggleKeyFilterMode}
+              title="キー絞込モード"
+            >
+              キー絞込{hasAnyActiveKeyFilter(tabData.keyFilters) ? ' *' : ''}
+            </button>
+            <span className="floating-separator" />
+            <CopyFilterButton jsonData={tabData.jsonData} keyFilters={tabData.keyFilters} />
             {isEditMode && <span className="floating-separator" />}
             {isEditMode && (
               <>
@@ -261,6 +287,19 @@ const JsonViewComponent: React.FC<JsonViewProps> = ({
           ) : (
             <div className="center-panel">
               <p>JSON/YAMLファイルをドラッグ&ドロップしてください</p>
+              <p className="center-panel-sub">
+                <span>または、クリップボードからペースト</span>
+                <button
+                  className="paste-zone-btn"
+                  onClick={onPasteTab}
+                  title="クリップボードからペースト (Ctrl+V)"
+                  aria-label="クリップボードからペースト"
+                >
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M4 2a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v1h1a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h1V2zm2-1a1 1 0 0 0-1 1v1h6V2a1 1 0 0 0-1-1H6zM3 4a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V5a1 1 0 0 0-1-1H3z" />
+                  </svg>
+                </button>
+              </p>
             </div>
           )
         ) : tabData.jsonData ? (
@@ -289,6 +328,14 @@ const JsonViewComponent: React.FC<JsonViewProps> = ({
                 onDelete={onDelete}
                 onExpandedChange={onExpandedChange}
                 expandedPaths={tabData.expandedPaths}
+                keyFilterMode={tabData.keyFilterMode}
+                keyFilters={tabData.keyFilters}
+                onBeginKeyFilterSelection={onBeginKeyFilterSelection}
+                onDraftKeySelectedChange={onDraftKeySelectedChange}
+                onDraftKeyFilterQueryChange={onDraftKeyFilterQueryChange}
+                onApplyKeyFilter={onApplyKeyFilter}
+                onCancelKeyFilterSelection={onCancelKeyFilterSelection}
+                onClearKeyFilter={onClearKeyFilter}
               />
             </div>
           )
@@ -299,10 +346,57 @@ const JsonViewComponent: React.FC<JsonViewProps> = ({
         ) : (
           <div className="center-panel">
             <p>JSON/YAMLファイルをドラッグ&ドロップしてください</p>
+            <p className="center-panel-sub">
+              <span>または、クリップボードからペースト</span>
+              <button
+                className="paste-zone-btn"
+                onClick={onPasteTab}
+                title="クリップボードからペースト (Ctrl+V)"
+                aria-label="クリップボードからペースト"
+              >
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                  <path d="M4 2a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v1h1a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h1V2zm2-1a1 1 0 0 0-1 1v1h6V2a1 1 0 0 0-1-1H6zM3 4a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V5a1 1 0 0 0-1-1H3z" />
+                </svg>
+              </button>
+            </p>
           </div>
         )}
       </div>
     </div>
+  )
+}
+
+function CopyFilterButton({
+  jsonData,
+  keyFilters
+}: {
+  jsonData: unknown
+  keyFilters: import('../Cell/keyFilter').KeyFilterState
+}) {
+  const [copied, setCopied] = useState(false)
+  const hasFilters = hasAnyActiveKeyFilter(keyFilters)
+
+  const handleClick = useCallback(() => {
+    const filtered = applyKeyFiltersToData(jsonData, keyFilters)
+    const text = JSON.stringify(filtered, null, 2)
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 1500)
+    })
+  }, [jsonData, keyFilters])
+
+  return (
+    <button
+      className={`floating-btn ${copied ? 'active' : ''}`}
+      onClick={handleClick}
+      disabled={!hasFilters}
+      title={copied ? 'コピーしました' : 'フィルター適用後のデータをコピー'}
+      aria-label="フィルター適用後のデータをコピー"
+    >
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+        <path d="M4 2a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v1h1a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h1V2zm2-1a1 1 0 0 0-1 1v1h6V2a1 1 0 0 0-1-1H6zM3 4a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V5a1 1 0 0 0-1-1H3z" />
+      </svg>
+    </button>
   )
 }
 

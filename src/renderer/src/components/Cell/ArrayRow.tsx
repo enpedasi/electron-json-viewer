@@ -1,14 +1,16 @@
 import React from 'react'
 import Cell from './Cell'
+import { KeyFilterState } from './keyFilter'
 
-interface Column {
+interface DataColumn {
   header: string
 }
 
 interface ArrayRowProps {
   element: any
   index: number
-  columns?: Column[]
+  dataColumns?: DataColumn[]
+  valueColSpan?: number
   depth: number
   searchQuery?: string
   searchResults?: any[]
@@ -20,12 +22,21 @@ interface ArrayRowProps {
   onDelete?: (path: string) => void
   onExpandedChange?: (path: string, expanded: boolean) => void
   expandedPaths?: string[]
+  keyFilterMode?: boolean
+  keyFilters?: KeyFilterState
+  onBeginKeyFilterSelection?: (path: string, allKeys: string[]) => void
+  onDraftKeySelectedChange?: (path: string, key: string, selected: boolean) => void
+  onDraftKeyFilterQueryChange?: (path: string, query: string) => void
+  onApplyKeyFilter?: (path: string, allKeys: string[]) => void
+  onCancelKeyFilterSelection?: (path: string) => void
+  onClearKeyFilter?: (path: string) => void
 }
 
 const ArrayRow: React.FC<ArrayRowProps> = ({
   element,
   index,
-  columns = [],
+  dataColumns = [],
+  valueColSpan = 1,
   depth,
   searchQuery,
   searchResults,
@@ -36,7 +47,15 @@ const ArrayRow: React.FC<ArrayRowProps> = ({
   onDataChange,
   onDelete,
   onExpandedChange,
-  expandedPaths = []
+  expandedPaths = [],
+  keyFilterMode = false,
+  keyFilters = {},
+  onBeginKeyFilterSelection,
+  onDraftKeySelectedChange,
+  onDraftKeyFilterQueryChange,
+  onApplyKeyFilter,
+  onCancelKeyFilterSelection,
+  onClearKeyFilter
 }) => {
   const typeOfEl = Array.isArray(element) ? 'array' : element === null ? 'null' : typeof element
 
@@ -44,7 +63,7 @@ const ArrayRow: React.FC<ArrayRowProps> = ({
     <tr className={`array-el ${typeOfEl}`}>
       <td className={`index ${typeOfEl}`}>{index}</td>
       {typeOfEl === 'object' ? (
-        columns.slice(1).map(({ header }) => (
+        dataColumns.map(({ header }) => (
           <td key={header} className="member">
             <Cell
               element={element[header]}
@@ -59,11 +78,19 @@ const ArrayRow: React.FC<ArrayRowProps> = ({
               onDelete={onDelete}
               onExpandedChange={onExpandedChange}
               expandedPaths={expandedPaths}
+              keyFilterMode={keyFilterMode}
+              keyFilters={keyFilters}
+              onBeginKeyFilterSelection={onBeginKeyFilterSelection}
+              onDraftKeySelectedChange={onDraftKeySelectedChange}
+              onDraftKeyFilterQueryChange={onDraftKeyFilterQueryChange}
+              onApplyKeyFilter={onApplyKeyFilter}
+              onCancelKeyFilterSelection={onCancelKeyFilterSelection}
+              onClearKeyFilter={onClearKeyFilter}
             />
           </td>
         ))
       ) : (
-        <td className="value" colSpan={columns.length}>
+        <td className="value" colSpan={valueColSpan}>
           <Cell
             element={element}
             depth={depth + 1}

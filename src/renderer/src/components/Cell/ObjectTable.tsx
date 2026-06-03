@@ -15,6 +15,8 @@ interface ObjectTableProps {
   onDelete?: (path: string) => void
   onAddProperty?: (path: string, key: string, value: any) => void
   onRenameKey?: (path: string, oldKey: string, newKey: string) => void
+  onExpandedChange?: (path: string, expanded: boolean) => void
+  expandedPaths?: string[]
 }
 
 interface Header {
@@ -34,7 +36,9 @@ const ObjectTable: React.FC<ObjectTableProps> = ({
   onDataChange,
   onDelete,
   onAddProperty,
-  onRenameKey
+  onRenameKey,
+  onExpandedChange,
+  expandedPaths = []
 }) => {
   const headers: Header[] = useMemo(() => {
     const base = [
@@ -141,6 +145,8 @@ const ObjectTable: React.FC<ObjectTableProps> = ({
               isEditMode={isEditMode}
               onDataChange={onDataChange}
               onDelete={onDelete}
+              onExpandedChange={onExpandedChange}
+              expandedPaths={expandedPaths}
             />
           </td>
           {isEditMode && (

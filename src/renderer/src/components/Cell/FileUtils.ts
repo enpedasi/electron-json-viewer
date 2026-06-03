@@ -51,3 +51,9 @@ export function validateText(text: string, fileType: FileType): any {
 export function defaultFileName(fileType: FileType): string {
   return fileType === 'yaml' ? 'untitled.yaml' : 'untitled.json'
 }
+
+export function getFileNameFromPath(filePath: string | null): string {
+  if (!filePath) return 'Untitled'
+  const normalizedPath = filePath.replace(/\\/g, '/')
+  return normalizedPath.substring(normalizedPath.lastIndexOf('/') + 1) || 'Untitled'
+}

@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useCallback } from 'react'
+import React, { useRef, useEffect, useLayoutEffect, useCallback } from 'react'
 import Cell from '../Cell/Cell'
 import TextEditor from './TextEditor'
 import { TabState } from '../../App'
@@ -22,6 +22,9 @@ interface JsonViewProps {
   onUndo?: () => void
   onRedo?: () => void
   onTextEditorChange?: (newText: string) => void
+  onExpandedChange?: (path: string, expanded: boolean) => void
+  onScrollPositionChange?: (scrollTop: number) => void
+  onExpandAll?: () => void
 }
 
 const JsonViewComponent: React.FC<JsonViewProps> = ({
@@ -41,7 +44,10 @@ const JsonViewComponent: React.FC<JsonViewProps> = ({
   onSave,
   onUndo,
   onRedo,
-  onTextEditorChange
+  onTextEditorChange,
+  onExpandedChange,
+  onScrollPositionChange,
+  onExpandAll
 }) => {
   const searchInputRef = useRef<HTMLInputElement>(null)
   const jsonViewerContainerRef = useRef<HTMLDivElement>(null)
@@ -102,16 +108,42 @@ const JsonViewComponent: React.FC<JsonViewProps> = ({
     }
   }, [searchVisible])
 
+  useLayoutEffect(() => {
+    const container = jsonViewerContainerRef.current
+    if (container) {
+      container.scrollTop = tabData.scrollTop
+    }
+  }, [tabData.id, tabData.scrollTop])
+
+  const handleViewerScroll = useCallback(
+    (event: React.UIEvent<HTMLDivElement>) => {
+      onScrollPositionChange?.(event.currentTarget.scrollTop)
+    },
+    [onScrollPositionChange]
+  )
+
   const handleCloseSearch = useCallback(() => {
     onSearchVisibleChange(false)
     onClearSearch()
   }, [onSearchVisibleChange, onClearSearch])
 
   const isEditMode = tabData.mode === 'edit'
+  const hasGridData =
+    tabData.viewMode === 'grid' &&
+    tabData.jsonData &&
+    !(
+      typeof tabData.jsonData === 'object' &&
+      tabData.jsonData !== null &&
+      'error' in tabData.jsonData
+    )
 
   return (
     <div className="json-view-content">
-      <div className="json-viewer-container" ref={jsonViewerContainerRef}>
+      <div
+        className="json-viewer-container"
+        ref={jsonViewerContainerRef}
+        onScroll={handleViewerScroll}
+      >
         {searchVisible && (
           <div className="search-overlay">
             <div className="search-container">
@@ -166,39 +198,47 @@ const JsonViewComponent: React.FC<JsonViewProps> = ({
           </div>
         )}
 
-        {isEditMode && (
+        {hasGridData && (
           <div className="edit-actions-overlay">
-            <button
-              className="floating-btn"
-              onClick={onUndo}
-              disabled={tabData.history.undo.length === 0}
-              title="元に戻す (Ctrl+Z)"
-            >
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                <path d="M3.5 2v4.5H8l-1.6-1.6A3.5 3.5 0 0 1 12 8.5 3.5 3.5 0 0 1 6.4 10l-1.1 1.1A5 5 0 1 0 7.6 4.1L10 2H3.5z" />
-              </svg>
+            <button className="floating-btn" onClick={onExpandAll} title="全て展開">
+              全て展開
             </button>
-            <button
-              className="floating-btn"
-              onClick={onRedo}
-              disabled={tabData.history.redo.length === 0}
-              title="やり直し (Ctrl+Shift+Z)"
-            >
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                <path d="M12.5 2v4.5H8l1.6-1.6A3.5 3.5 0 0 0 4 8.5a3.5 3.5 0 0 0 5.6 1.5l1.1 1.1A5 5 0 1 1 8.4 4.1L6 2h6.5z" />
-              </svg>
-            </button>
-            <span className="floating-separator" />
-            <button
-              className="floating-btn save-btn"
-              onClick={onSave}
-              disabled={!tabData.isDirty}
-              title="保存 (Ctrl+S)"
-            >
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                <path d="M13.5 1h-12A1.5 1.5 0 0 0 0 2.5v11A1.5 1.5 0 0 0 1.5 15h12a1.5 1.5 0 0 0 1.5-1.5V5l-4-4zM5 2h4v3H5V2zm6 12H5v-4h6v4zm2-.5a.5.5 0 0 1-.5.5H12V9H4v5H2.5a.5.5 0 0 1-.5-.5v-11a.5.5 0 0 1 .5-.5H4v4h6V2.5l3 3V13.5z" />
-              </svg>
-            </button>
+            {isEditMode && <span className="floating-separator" />}
+            {isEditMode && (
+              <>
+                <button
+                  className="floating-btn"
+                  onClick={onUndo}
+                  disabled={tabData.history.undo.length === 0}
+                  title="元に戻す (Ctrl+Z)"
+                >
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M3.5 2v4.5H8l-1.6-1.6A3.5 3.5 0 0 1 12 8.5 3.5 3.5 0 0 1 6.4 10l-1.1 1.1A5 5 0 1 0 7.6 4.1L10 2H3.5z" />
+                  </svg>
+                </button>
+                <button
+                  className="floating-btn"
+                  onClick={onRedo}
+                  disabled={tabData.history.redo.length === 0}
+                  title="やり直し (Ctrl+Shift+Z)"
+                >
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M12.5 2v4.5H8l1.6-1.6A3.5 3.5 0 0 0 4 8.5a3.5 3.5 0 0 0 5.6 1.5l1.1 1.1A5 5 0 1 1 8.4 4.1L6 2h6.5z" />
+                  </svg>
+                </button>
+                <span className="floating-separator" />
+                <button
+                  className="floating-btn save-btn"
+                  onClick={onSave}
+                  disabled={!tabData.isDirty}
+                  title="保存 (Ctrl+S)"
+                >
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M13.5 1h-12A1.5 1.5 0 0 0 0 2.5v11A1.5 1.5 0 0 0 1.5 15h12a1.5 1.5 0 0 0 1.5-1.5V5l-4-4zM5 2h4v3H5V2zm6 12H5v-4h6v4zm2-.5a.5.5 0 0 1-.5.5H12V9H4v5H2.5a.5.5 0 0 1-.5-.5v-11a.5.5 0 0 1 .5-.5H4v4h6V2.5l3 3V13.5z" />
+                  </svg>
+                </button>
+              </>
+            )}
           </div>
         )}
 
@@ -247,6 +287,8 @@ const JsonViewComponent: React.FC<JsonViewProps> = ({
                 isEditMode={isEditMode}
                 onDataChange={onDataChange}
                 onDelete={onDelete}
+                onExpandedChange={onExpandedChange}
+                expandedPaths={tabData.expandedPaths}
               />
             </div>
           )

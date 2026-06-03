@@ -52,6 +52,7 @@ export const tauriApi: DesktopApi = {
   handleFilesOpen(callback) {
     let unlistenDragDrop: (() => void) | undefined
     let unlistenFilesOpened: (() => void) | undefined
+    let disposed = false
 
     getCurrentWebviewWindow()
       .onDragDropEvent((event) => {
@@ -60,16 +61,25 @@ export const tauriApi: DesktopApi = {
         }
       })
       .then((fn) => {
-        unlistenDragDrop = fn
+        if (disposed) {
+          fn()
+        } else {
+          unlistenDragDrop = fn
+        }
       })
 
     listen<string[]>('files-opened', (event) => {
       callback(event, event.payload)
     }).then((fn) => {
-      unlistenFilesOpened = fn
+      if (disposed) {
+        fn()
+      } else {
+        unlistenFilesOpened = fn
+      }
     })
 
     return () => {
+      disposed = true
       unlistenDragDrop?.()
       unlistenFilesOpened?.()
     }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import './App.css'
 import TabsComponent from './components/Tabs/TabsComponent'
 import JsonViewComponent from './components/JsonView/JsonViewComponent'
@@ -19,8 +19,12 @@ import {
   serializeData,
   validateText,
   defaultFileName,
+  getFileNameFromPath,
   FileType
 } from './components/Cell/FileUtils'
+import { collectExpandablePaths, updateExpandedPaths } from './components/Cell/expandedPaths'
+import { updateTabScrollTop } from './components/JsonView/scrollPosition'
+import { planOpenedFiles } from './components/Tabs/openFiles'
 import { getDesktopApi, initTauriApi } from './platform'
 
 export type ViewMode = 'grid' | 'text'
@@ -53,6 +57,8 @@ export interface TabState {
   viewMode: ViewMode
   fileType: FileType
   originalContent: string
+  expandedPaths: string[]
+  scrollTop: number
 }
 
 const MAX_HISTORY = 100
@@ -61,38 +67,30 @@ function App() {
   const [tabs, setTabs] = useState<TabState[]>([])
   const [activeTabId, setActiveTabId] = useState<string | null>(null)
   const [searchVisible, setSearchVisible] = useState(false)
-
-  const getFileName = (path: string | null): string => {
-    if (!path) return 'Untitled'
-    try {
-      const api = getDesktopApi()
-      if (api?.platform) {
-        const separator = api.platform === 'win32' ? '\\' : '/'
-        return path.substring(path.lastIndexOf(separator) + 1)
-      }
-      return path.substring(path.lastIndexOf('/') + 1)
-    } catch (e) {
-      console.error('Error getting file name:', e)
-      return 'Untitled'
-    }
-  }
+  const tabsRef = useRef<TabState[]>([])
 
   const updateTabData = useCallback((tabId: string, updates: Partial<Omit<TabState, 'id'>>) => {
-    setTabs((prevTabs) => prevTabs.map((tab) => (tab.id === tabId ? { ...tab, ...updates } : tab)))
+    setTabs((prevTabs) => {
+      const nextTabs = prevTabs.map((tab) => (tab.id === tabId ? { ...tab, ...updates } : tab))
+      tabsRef.current = nextTabs
+      return nextTabs
+    })
   }, [])
 
   // --- アクティブなタブの取得 ---
   const activeTabData = tabs.find((tab) => tab.id === activeTabId)
 
-  // --- タブ操作 ---
-  const addTab = useCallback(
-    (filePath: string | null = null, data: any = null, makeActive = true): string => {
-      const newTabId = uuidv4()
-      const fileName = getFileName(filePath)
-      const newTab: TabState = {
-        id: newTabId,
+  useEffect(() => {
+    tabsRef.current = tabs
+  }, [tabs])
+
+  const createTabState = useCallback(
+    (filePath: string | null = null, data: any = null, id = uuidv4()): TabState => {
+      const fileType = filePath ? detectFileType(filePath) : 'json'
+      return {
+        id,
         filePath: filePath,
-        fileName: fileName,
+        fileName: getFileNameFromPath(filePath),
         jsonData: data,
         searchQuery: '',
         searchResults: [],
@@ -101,17 +99,30 @@ function App() {
         isDirty: false,
         history: { undo: [], redo: [] },
         viewMode: 'grid',
-        fileType: filePath ? detectFileType(filePath) : 'json',
-        originalContent:
-          data !== null ? serializeData(data, filePath ? detectFileType(filePath) : 'json') : ''
+        fileType,
+        originalContent: data !== null ? serializeData(data, fileType) : '',
+        expandedPaths: [],
+        scrollTop: 0
       }
-      setTabs((prevTabs) => [...prevTabs, newTab])
-      if (makeActive || tabs.length === 0) {
-        setActiveTabId(newTabId)
-      }
-      return newTabId
     },
-    [tabs.length]
+    []
+  )
+
+  // --- タブ操作 ---
+  const addTab = useCallback(
+    (filePath: string | null = null, data: any = null, makeActive = true): string => {
+      const newTab = createTabState(filePath, data)
+      setTabs((prevTabs) => {
+        const nextTabs = [...prevTabs, newTab]
+        tabsRef.current = nextTabs
+        return nextTabs
+      })
+      if (makeActive || tabs.length === 0) {
+        setActiveTabId(newTab.id)
+      }
+      return newTab.id
+    },
+    [createTabState, tabs.length]
   )
 
   // --- 保存 ---
@@ -131,7 +142,7 @@ function App() {
         })
         if (!result || result.canceled) return false
 
-        const newFileName = getFileName(result.filePath)
+        const newFileName = getFileNameFromPath(result.filePath)
         const newFileType = detectFileType(result.filePath)
         setTabs((prevTabs) =>
           prevTabs.map((t) => {
@@ -194,7 +205,7 @@ function App() {
   // --- ファイル処理 ---
   const loadFileIntoTab = useCallback(
     async (filePath: string, tabId: string) => {
-      const existingTab = tabs.find((t) => t.id === tabId)
+      const existingTab = tabsRef.current.find((t) => t.id === tabId)
       if (existingTab && existingTab.jsonData) {
         console.log(`Tab ${tabId} already has data for ${filePath}`)
         return
@@ -209,23 +220,25 @@ function App() {
           updateTabData(tabId, {
             jsonData: { error: `Cannot read file outside Electron environment.` },
             filePath: filePath,
-            fileName: `Error - ${getFileName(filePath)}`
+            fileName: `Error - ${getFileNameFromPath(filePath)}`
           })
           return
         }
         const fileType = detectFileType(filePath)
         const parsed = parseContent(fileContent, fileType)
-        const fileName = getFileName(filePath)
+        const fileName = getFileNameFromPath(filePath)
         updateTabData(tabId, {
           jsonData: parsed,
           filePath: filePath,
           fileName: fileName,
           fileType: fileType,
-          originalContent: serializeData(parsed, fileType)
+          originalContent: serializeData(parsed, fileType),
+          expandedPaths: [],
+          scrollTop: 0
         })
       } catch (error: any) {
         console.error('Error loading file into tab:', filePath, error)
-        const fileName = getFileName(filePath)
+        const fileName = getFileNameFromPath(filePath)
         updateTabData(tabId, {
           jsonData: { error: `Failed to load or parse: ${error.message || error}` },
           filePath: filePath,
@@ -233,7 +246,40 @@ function App() {
         })
       }
     },
-    [updateTabData, tabs]
+    [updateTabData]
+  )
+
+  const prepareTabForFile = useCallback(
+    (tab: TabState, filePath: string): TabState => ({
+      ...createTabState(filePath, null, tab.id),
+      mode: tab.mode,
+      viewMode: tab.viewMode
+    }),
+    [createTabState]
+  )
+
+  const handleFilesOpened = useCallback(
+    (filePaths: string[]) => {
+      const currentTabs = tabsRef.current
+      const plan = planOpenedFiles({
+        tabs: currentTabs,
+        filePaths,
+        createTab: (filePath) => createTabState(filePath, null),
+        prepareTabForFile
+      })
+
+      if (plan.tabs !== currentTabs) {
+        tabsRef.current = plan.tabs
+        setTabs(plan.tabs)
+      }
+      if (plan.activeTabId) {
+        setActiveTabId(plan.activeTabId)
+      }
+      plan.filesToLoad.forEach(({ filePath, tabId }) => {
+        loadFileIntoTab(filePath, tabId)
+      })
+    },
+    [createTabState, loadFileIntoTab, prepareTabForFile]
   )
 
   const handleDrop = useCallback(async (e: DragEvent) => {
@@ -406,6 +452,40 @@ function App() {
     [activeTabId, activeTabData]
   )
 
+  const handleExpandedChange = useCallback(
+    (path: string, expanded: boolean) => {
+      if (!activeTabId) return
+      setTabs((prevTabs) =>
+        prevTabs.map((tab) => {
+          if (tab.id !== activeTabId) return tab
+          return {
+            ...tab,
+            expandedPaths: updateExpandedPaths(tab.expandedPaths, path, expanded)
+          }
+        })
+      )
+    },
+    [activeTabId]
+  )
+
+  const handleScrollPositionChange = useCallback(
+    (scrollTop: number) => {
+      if (!activeTabId) return
+      setTabs((prevTabs) => updateTabScrollTop(prevTabs, activeTabId, scrollTop))
+    },
+    [activeTabId]
+  )
+
+  const handleExpandAll = useCallback(() => {
+    if (!activeTabId) return
+    setTabs((prevTabs) =>
+      prevTabs.map((tab) => {
+        if (tab.id !== activeTabId) return tab
+        return { ...tab, expandedPaths: collectExpandablePaths(tab.jsonData) }
+      })
+    )
+  }, [activeTabId])
+
   // --- 検索関連処理 ---
   const handleSearch = useCallback(() => {
     if (!activeTabData) return
@@ -465,7 +545,9 @@ function App() {
     if (tabs.length === 0) {
       addTab(null, null, true)
     }
+  }, [addTab, tabs.length])
 
+  useEffect(() => {
     const handleDragOver = (e: DragEvent) => {
       e.preventDefault()
       e.stopPropagation()
@@ -479,28 +561,7 @@ function App() {
     if (api?.handleFilesOpen) {
       removeFilesOpenListener = api.handleFilesOpen((event, filePaths) => {
         console.log('Files opened via event:', filePaths)
-        filePaths.forEach((filePath, index) => {
-          const existingTab = tabs.find((tab) => tab.filePath === filePath)
-          if (existingTab) {
-            setActiveTabId(existingTab.id)
-            if (index === 0) {
-              console.log(`Tab for ${filePath} already exists.`)
-            }
-          } else {
-            const isFirstFile = index === 0
-            const emptyUntitled = tabs.find(
-              (t) => t.filePath === null && t.jsonData === null && !t.isDirty
-            )
-            if (isFirstFile && emptyUntitled) {
-              loadFileIntoTab(filePath, emptyUntitled.id)
-              setActiveTabId(emptyUntitled.id)
-            } else {
-              const makeActive = index === 0
-              const newTabId = addTab(filePath, null, makeActive)
-              loadFileIntoTab(filePath, newTabId)
-            }
-          }
-        })
+        handleFilesOpened(filePaths)
       })
     }
 
@@ -521,7 +582,7 @@ function App() {
         removeShowSearchListener()
       }
     }
-  }, [addTab, handleDrop, loadFileIntoTab, tabs, apiReady])
+  }, [apiReady, handleDrop, handleFilesOpened])
 
   // --- キーボードショートカット ---
   useEffect(() => {
@@ -605,6 +666,9 @@ function App() {
             onUndo={handleUndo}
             onRedo={handleRedo}
             onTextEditorChange={handleTextEditorChange}
+            onExpandedChange={handleExpandedChange}
+            onScrollPositionChange={handleScrollPositionChange}
+            onExpandAll={handleExpandAll}
           />
         ) : (
           <div className="center-panel">

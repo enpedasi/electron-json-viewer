@@ -14,6 +14,8 @@ interface Props {
   onDataChange?: (path: string, newValue: any) => void
   onDelete?: (path: string) => void
   onAddItem?: (path: string, value: any) => void
+  onExpandedChange?: (path: string, expanded: boolean) => void
+  expandedPaths?: string[]
 }
 
 const ArrayTable: React.FC<Props> = ({
@@ -27,7 +29,9 @@ const ArrayTable: React.FC<Props> = ({
   isEditMode = false,
   onDataChange,
   onDelete,
-  onAddItem
+  onAddItem,
+  onExpandedChange,
+  expandedPaths = []
 }) => {
   const headers = React.useMemo(() => {
     const hdrCells = array
@@ -90,6 +94,8 @@ const ArrayTable: React.FC<Props> = ({
           isEditMode={isEditMode}
           onDataChange={onDataChange}
           onDelete={onDelete}
+          onExpandedChange={onExpandedChange}
+          expandedPaths={expandedPaths}
         />
       ))}
       {isEditMode && (

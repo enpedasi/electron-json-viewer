@@ -18,6 +18,8 @@ interface ArrayRowProps {
   isEditMode?: boolean
   onDataChange?: (path: string, newValue: any) => void
   onDelete?: (path: string) => void
+  onExpandedChange?: (path: string, expanded: boolean) => void
+  expandedPaths?: string[]
 }
 
 const ArrayRow: React.FC<ArrayRowProps> = ({
@@ -32,7 +34,9 @@ const ArrayRow: React.FC<ArrayRowProps> = ({
   path,
   isEditMode = false,
   onDataChange,
-  onDelete
+  onDelete,
+  onExpandedChange,
+  expandedPaths = []
 }) => {
   const typeOfEl = Array.isArray(element) ? 'array' : element === null ? 'null' : typeof element
 
@@ -53,6 +57,8 @@ const ArrayRow: React.FC<ArrayRowProps> = ({
               isEditMode={isEditMode}
               onDataChange={onDataChange}
               onDelete={onDelete}
+              onExpandedChange={onExpandedChange}
+              expandedPaths={expandedPaths}
             />
           </td>
         ))
@@ -69,6 +75,8 @@ const ArrayRow: React.FC<ArrayRowProps> = ({
             isEditMode={isEditMode}
             onDataChange={onDataChange}
             onDelete={onDelete}
+            onExpandedChange={onExpandedChange}
+            expandedPaths={expandedPaths}
           />
         </td>
       )}

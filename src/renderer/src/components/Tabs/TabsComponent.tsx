@@ -1,5 +1,6 @@
 import React from 'react'
 import './TabsComponent.css'
+import { getFileNameFromPath } from '../Cell/FileUtils'
 
 interface TabInfo {
   id: string
@@ -32,6 +33,8 @@ const TabsComponent: React.FC<TabsProps> = ({
   activeTabViewMode = 'grid'
 }) => {
   const isEditMode = activeTabMode === 'edit'
+  const getTabDisplayName = (tab: TabInfo) =>
+    tab.filePath ? getFileNameFromPath(tab.filePath) : getFileNameFromPath(tab.fileName)
 
   return (
     <div className="tabs-container">
@@ -45,7 +48,7 @@ const TabsComponent: React.FC<TabsProps> = ({
           >
             <span className="tab-name">
               {tab.isDirty && <span className="dirty-marker">*</span>}
-              {tab.fileName}
+              {getTabDisplayName(tab)}
             </span>
             {(tabs.length > 1 || tab.filePath !== null) && (
               <button
@@ -54,7 +57,7 @@ const TabsComponent: React.FC<TabsProps> = ({
                   e.stopPropagation()
                   onCloseTab(tab.id)
                 }}
-                aria-label={`Close tab ${tab.fileName}`}
+                aria-label={`Close tab ${getTabDisplayName(tab)}`}
               >
                 ×
               </button>

@@ -1,11 +1,12 @@
 import { KeyFilterState, isObjectArrayKeyVisible } from '../Cell/keyFilter'
+import { ColumnProjectionState, isProjectedPathVisible, getProjectionContextForPath } from '../Cell/columnProjection'
 
 export interface SearchResult {
   path: string
   value: any
 }
 
-export function searchJson(json: any, query: string, keyFilters: KeyFilterState = {}): SearchResult[] {
+export function searchJson(json: any, query: string, keyFilters: KeyFilterState = {}, columnProjections: ColumnProjectionState = {}): SearchResult[] {
   const results: SearchResult[] = []
   const searchQuery = query.toLowerCase()
 
@@ -18,15 +19,24 @@ export function searchJson(json: any, query: string, keyFilters: KeyFilterState 
     for (const key in obj) {
       if (!Object.prototype.hasOwnProperty.call(obj, key)) continue
 
+      const value = obj[key]
+      const currentPath = Array.isArray(obj) ? `${path}[${key}]` : `${path}.${key}`
+
       if (!Array.isArray(obj) && !isObjectArrayKeyVisible(keyFilters, path, key)) {
         continue
       }
 
-      const value = obj[key]
-      const currentPath = Array.isArray(obj) ? `${path}[${key}]` : `${path}.${key}`
+      if (!isProjectedPathVisible(columnProjections, currentPath)) {
+        continue
+      }
+
+      const isInsideProjection = getProjectionContextForPath(currentPath) !== null &&
+        columnProjections[getProjectionContextForPath(currentPath)!.arrayPath]?.appliedColumns.length > 0
 
       if (key.toLowerCase().includes(searchQuery)) {
-        results.push({ path: currentPath, value: key })
+        if (!isInsideProjection || typeof value !== 'object' || value === null) {
+          results.push({ path: currentPath, value: key })
+        }
       }
 
       if (typeof value === 'object' && value !== null) {

@@ -1,87 +1,86 @@
 # JSON Grid Viewer
 
-JSON / YAML データを「配列はテーブル」「オブジェクトはキー・バリュー」で可視化することに重点を置いた、クロスプラットフォーム対応のデスクトップビューア兼エディタです。
-React 18 + TypeScript のフロントエンドを [Tauri v2](https://v2.tauri.app/) (Rust) のシェルで動作させ、Electron ベースの前身より軽量・高速に動作します。
+A cross-platform desktop viewer and editor for JSON / YAML data, focused on visualizing arrays as tables and objects as key-value pairs. Built with a React 18 + TypeScript frontend inside a [Tauri v2](https://v2.tauri.app/) (Rust) shell, making it lighter and faster than its Electron-based predecessor.
 
-> 元になっているのは MIT ライセンスの [dutchigor/json-grid-viewer](https://github.com/dutchigor/json-grid-viewer) です。本リポジトリはそれをベースに Tauri 移行、YAML 対応、編集/Undo-Redo 機能などを追加しています。
-
----
-
-## 主な機能
-
-### 閲覧
-- **グリッドビュー**: 配列は列ヘッダ付きのテーブル形式、オブジェクトは `key | value` の 2 列表で描画
-- **テキストビュー**: 生データの表示・編集（JSON はフォーマット / 最小化、YAML はフォーマット）
-- **展開 / 折りたたみ**: ノード単位の展開状態の保持、`+ / -` ボタンとキーボード (`+` `-` `→`) に対応
-- **「全て展開」ボタン**: ツリー全体を一括展開
-- **データ型ごとの色分け** ハイライト
-- **列幅のリサイズ**: ヘッダ右端をドラッグで列幅調整、ダブルクリックでリセット
-
-### 検索
-- キーおよび値に含まれる文字列の全文検索 (`Ctrl/Cmd + F`)
-- マッチ箇所をハイライトし、Enter で次候補へジャンプ
-- 検索に連動してマッチを包含する親ノードを自動展開
-
-### 編集 (`編集` モード)
-- プリミティブ値のインライン編集（ダブルクリック / Enter / F2）
-- ブール値はクリックで `true` / `false` をトグル、`null` 値の編集対応
-- オブジェクト: プロパティの追加・削除・キー名のリネーム
-- 配列: 要素の追加・削除
-- Undo / Redo（最大 100 ステップ、`Ctrl/Cmd + Z` / `Ctrl/Cmd + Shift + Z` / `Ctrl/Cmd + Y`）
-- タブ単位の未保存 (`*`) 表示
-- タブ / ウィンドウクローズ時の未保存確認ダイアログ
-
-### ファイル操作
-- JSON / YAML（`.json` / `.yaml` / `.yml`）の読み込み・保存
-- ドラッグ & ドロップで複数ファイルを同時に開いてタブ化
-- OS の「アプリで開く」連携 (Tauri `files-opened` イベント)
-- 「名前を付けて保存」ダイアログ (JSON / YAML / All Files フィルタ)
-- 日本語ファイル名、スペース入りパスにも対応
+> Based on the MIT-licensed [dutchigor/json-grid-viewer](https://github.com/dutchigor/json-grid-viewer). This repository adds Tauri migration, YAML support, editing/Undo-Redo functionality, and more.
 
 ---
 
-## 技術スタック
+## Key Features
 
-| レイヤ | 採用技術 |
+### Viewing
+- **Grid View**: Arrays are rendered as tables with column headers; objects are rendered as two-column `key | value` tables
+- **Text View**: Display and edit raw data (JSON format/minify, YAML format)
+- **Expand / Collapse**: Per-node expand state persistence, with `+ / -` buttons and keyboard (`+` `-` `→`) support
+- **"Expand All" button**: Expand the entire tree at once
+- **Data type color-coding** highlight
+- **Column width resizing**: Drag the right edge of a header to resize; double-click to reset
+
+### Search
+- Full-text search across keys and values (`Ctrl/Cmd + F`)
+- Highlight matches and jump to the next with Enter
+- Auto-expand parent nodes containing matches
+
+### Editing (`Edit` mode)
+- Inline editing of primitive values (double-click / Enter / F2)
+- Click to toggle `true` / `false` for booleans; `null` value editing support
+- Objects: add, delete, and rename properties
+- Arrays: add and delete elements
+- Undo / Redo (up to 100 steps, `Ctrl/Cmd + Z` / `Ctrl/Cmd + Shift + Z` / `Ctrl/Cmd + Y`)
+- Unsaved (`*`) indicator per tab
+- Unsaved changes confirmation dialog on tab/window close
+
+### File Operations
+- Load and save JSON / YAML (`.json` / `.yaml` / `.yml`)
+- Drag & drop multiple files to open them as tabs simultaneously
+- OS "Open with" integration (Tauri `files-opened` event)
+- "Save As" dialog (JSON / YAML / All Files filter)
+- Supports Japanese filenames and paths with spaces
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
 | --- | --- |
-| デスクトップランタイム | Tauri v2 (Rust) |
-| フロントエンド | React 18, TypeScript |
-| ビルドツール | Vite 7 |
-| YAML パース | js-yaml |
-| デスクトップ API | `@tauri-apps/api` / `@tauri-apps/plugin-{dialog,fs,os}` |
-| Tauri コマンド | `rfd` による確認ダイアログ |
-| テスト | Node.js (`node:assert` + esbuild) |
-| 静的解析 / 整形 | ESLint, Prettier |
+| Desktop Runtime | Tauri v2 (Rust) |
+| Frontend | React 18, TypeScript |
+| Build Tool | Vite 7 |
+| YAML Parsing | js-yaml |
+| Desktop API | `@tauri-apps/api` / `@tauri-apps/plugin-{dialog,fs,os}` |
+| Tauri Commands | `rfd` for confirmation dialogs |
+| Testing | Node.js (`node:assert` + esbuild) |
+| Linting / Formatting | ESLint, Prettier |
 
 ---
 
-## ディレクトリ構成
+## Directory Structure
 
 ```text
 electron-json-viewer/
-├── build/                    # (legacy) Electron 用ビルドリソース
-├── resources/                # アイコン等
+├── build/                    # (legacy) Electron build resources
+├── resources/                # Icons, etc.
 ├── src/
-│   └── renderer/             # Vite ルート (React フロントエンド)
+│   └── renderer/             # Vite root (React frontend)
 │       ├── index.html
 │       └── src/
-│           ├── App.tsx                # タブ状態・履歴・ショートカットの統括
+│           ├── App.tsx                # Tab state, history, shortcuts orchestration
 │           ├── App.css
 │           ├── main.jsx
-│           ├── platform/              # デスクトップ API 境界 (Tauri 実装)
+│           ├── platform/              # Desktop API boundary (Tauri implementation)
 │           │   ├── index.ts
 │           │   ├── tauriApi.ts
 │           │   └── types.ts
 │           └── components/
-│               ├── Tabs/              # タブ UI
+│               ├── Tabs/              # Tab UI
 │               │   ├── TabsComponent.tsx
 │               │   ├── TabsComponent.css
 │               │   └── openFiles.ts
-│               ├── JsonView/          # ビューエリア
+│               ├── JsonView/          # View area
 │               │   ├── JsonViewComponent.tsx
 │               │   ├── TextEditor.tsx
 │               │   └── scrollPosition.ts
-│               └── Cell/              # グリッド描画
+│               └── Cell/              # Grid rendering
 │                   ├── Cell.tsx
 │                   ├── ArrayTable.tsx
 │                   ├── ArrayRow.tsx
@@ -91,7 +90,7 @@ electron-json-viewer/
 │                   ├── CellUtils.ts
 │                   ├── expandedPaths.ts
 │                   └── FileUtils.ts
-├── src-tauri/                # Tauri (Rust) バックエンド
+├── src-tauri/                # Tauri (Rust) backend
 │   ├── Cargo.toml
 │   ├── tauri.conf.json
 │   ├── build.rs
@@ -99,15 +98,15 @@ electron-json-viewer/
 │   ├── icons/
 │   └── src/
 │       ├── main.rs
-│       └── lib.rs            # show_unsaved_dialog などの #[tauri::command]
-├── tests/                    # Node.js ベースのユーティリティテスト
+│       └── lib.rs            # show_unsaved_dialog etc. #[tauri::command]
+├── tests/                    # Node.js-based utility tests
 │   ├── expanded-paths.test.js
 │   ├── file-path-display.test.js
 │   ├── open-files-plan.test.js
 │   ├── scroll-position.test.js
 │   ├── yaml-parse.test.js
-│   └── fixtures/             # テスト用 YAML サンプル
-├── vite.config.ts            # フロントエンドの Vite 設定
+│   └── fixtures/             # Test YAML samples
+├── vite.config.ts            # Frontend Vite configuration
 ├── tsconfig.json
 ├── package.json
 └── README.md
@@ -115,31 +114,31 @@ electron-json-viewer/
 
 ---
 
-## 開発環境の前提条件
+## Prerequisites
 
-- **Node.js** 18 以上
-- **Rust** stable (MSVC toolchain) 1.77.2 以上
+- **Node.js** 18 or later
+- **Rust** stable (MSVC toolchain) 1.77.2 or later
 - **Windows**: Microsoft C++ Build Tools, WebView2 Runtime
 - **macOS**: Xcode Command Line Tools
-- **Linux**: `webkit2gtk` / `libssl` 等の Tauri 依存パッケージ（公式ドキュメント参照）
+- **Linux**: Tauri dependencies such as `webkit2gtk` / `libssl` (see official docs)
 
-詳細は Tauri 公式の [Prerequisites](https://v2.tauri.app/start/prerequisites/) を参照してください。
+For details, refer to the official Tauri [Prerequisites](https://v2.tauri.app/start/prerequisites/) page.
 
 ---
 
-## セットアップと開発コマンド
+## Setup and Development Commands
 
 ```bash
-# 依存関係をインストール
+# Install dependencies
 npm install
 
-# Tauri アプリとして開発起動 (Vite dev server + Rust アプリ)
+# Start as a Tauri app (Vite dev server + Rust app)
 npm run dev
 
-# フロントエンド単体での開発 (ブラウザで動く, tauri API はスタブ)
+# Frontend-only development (runs in browser, Tauri APIs are stubbed)
 npm run web:dev
 
-# 静的ビルド
+# Static build
 npm run web:build
 npm run web:preview
 
@@ -148,17 +147,17 @@ npm run lint
 npm run format
 ```
 
-## ビルド
+## Build
 
 ```bash
-# ホスト OS 向けの Tauri リリースビルド
+# Tauri release build for the host OS
 npm run build
 ```
 
-成果物は `src-tauri/target/release/bundle/` 配下に出力されます。
-Tauri の bundler 設定 (`tauri.conf.json`) により、OS に応じたインストーラや実行ファイルが生成されます。
+The output is placed under `src-tauri/target/release/bundle/`.
+The Tauri bundler configuration (`tauri.conf.json`) generates OS-specific installers and executables.
 
-## テスト
+## Tests
 
 ```bash
 node tests/expanded-paths.test.js
@@ -168,38 +167,38 @@ node tests/scroll-position.test.js
 node tests/yaml-parse.test.js
 ```
 
-ユーティリティ層 (`expandedPaths`, `openFiles` など) に対する Node.js ベースのユニットテストです。
-ESLint / Prettier による静的解析と整形を CI の前に通すことを推奨します。
+Node.js-based unit tests for the utility layer (`expandedPaths`, `openFiles`, etc.).
+It is recommended to run ESLint / Prettier static analysis and formatting before CI.
 
 ---
 
-## キーボードショートカット
+## Keyboard Shortcuts
 
-| 操作 | ショートカット |
+| Action | Shortcut |
 | --- | --- |
-| 保存 | `Ctrl/Cmd + S` |
-| 元に戻す (Undo) | `Ctrl/Cmd + Z` |
-| やり直し (Redo) | `Ctrl/Cmd + Shift + Z` または `Ctrl/Cmd + Y` |
-| 検索バーを開く | `Ctrl/Cmd + F` |
-| 検索バーを閉じる | `Esc` |
-| セルを編集 (テキストモード時) | `Enter` または `F2` |
-| セル編集をキャンセル | `Esc` |
-| ノードを展開 | `+` または `→` |
-| ノードを折りたたみ | `-` |
+| Save | `Ctrl/Cmd + S` |
+| Undo | `Ctrl/Cmd + Z` |
+| Redo | `Ctrl/Cmd + Shift + Z` or `Ctrl/Cmd + Y` |
+| Open search bar | `Ctrl/Cmd + F` |
+| Close search bar | `Esc` |
+| Edit cell (text mode) | `Enter` or `F2` |
+| Cancel cell edit | `Esc` |
+| Expand node | `+` or `→` |
+| Collapse node | `-` |
 
 ---
 
-## 設計メモ
+## Design Notes
 
-- **データモデル**: 内部表現はフォーマット非依存の JS オブジェクト。表示・編集・検索はすべてこのオブジェクトに対して行います。
-- **デスクトップ API 境界**: `src/renderer/src/platform/` の `DesktopApi` インターフェースを介してネイティブ機能を抽象化しており、将来的に別ランタイムへ差し替える際の影響範囲を限定しています。
-- **YAML スキーマ**: `FileUtils.ts` で `js-yaml` のスキーマを拡張し、`!` タグを含むドキュメントでも落ちずに読み込めるようフォールバックを定義しています。
-- **履歴管理**: `applyOperation` / `invertOperation` により `set` / `delete` / `add` / `rename` の各操作を反転可能にし、Undo / Redo を実現しています。
+- **Data Model**: The internal representation is a format-agnostic JS object. All display, editing, and search operations work against this object.
+- **Desktop API Boundary**: Native functionality is abstracted through the `DesktopApi` interface in `src/renderer/src/platform/`, limiting the impact when swapping to a different runtime in the future.
+- **YAML Schema**: `FileUtils.ts` extends the `js-yaml` schema with a fallback so that documents containing `!` tags can be loaded without crashing.
+- **History Management**: `applyOperation` / `invertOperation` make each `set` / `delete` / `add` / `rename` operation reversible, enabling Undo / Redo.
 
 ---
 
-## ライセンス
+## License
 
-本プロジェクトは MIT ライセンスの下で公開されています。
-フロントエンドのグリッド描画ロジックは [dutchigor/json-grid-viewer](https://github.com/dutchigor/json-grid-viewer) (MIT) をベースにしています。
-YAML パースには [js-yaml](https://github.com/nodeca/js-yaml) (MIT) を使用しています。
+This project is released under the MIT License.
+The frontend grid rendering logic is based on [dutchigor/json-grid-viewer](https://github.com/dutchigor/json-grid-viewer) (MIT).
+YAML parsing uses [js-yaml](https://github.com/nodeca/js-yaml) (MIT).

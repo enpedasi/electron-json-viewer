@@ -82,3 +82,30 @@ assert.deepStrictEqual(
 )
 
 console.log('search json key filter tests passed')
+
+const projectedStatuses = [
+  {
+    unitStatus: { jobNumber: 1, startTime: '2026-06-03T10:34:48+09:00', retCode: 0 },
+    definition: { unitType: 'JOB', unitID: 18099, unitName: 'J-CY1220' }
+  }
+]
+
+const columnProjections = {
+  '': {
+    isSelecting: false,
+    appliedColumns: [
+      { path: 'unitStatus.jobNumber', label: 'jobNumber', groupPath: 'unitStatus' },
+      { path: 'definition.unitName', label: 'unitName', groupPath: 'definition' }
+    ],
+    draftColumnPaths: ['unitStatus.jobNumber', 'definition.unitName'],
+    draftQuery: ''
+  }
+}
+
+assert.deepStrictEqual(searchJson(projectedStatuses, 'retCode', {}, columnProjections), [])
+assert.deepStrictEqual(searchJson(projectedStatuses, 'unitStatus', {}, columnProjections), [])
+assert.deepStrictEqual(searchJson(projectedStatuses, 'definition', {}, columnProjections), [])
+assert.deepStrictEqual(
+  searchJson(projectedStatuses, 'J-CY1220', {}, columnProjections).map((result) => result.path),
+  ['[0].definition.unitName']
+)

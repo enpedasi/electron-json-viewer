@@ -1,9 +1,11 @@
 import React from 'react'
 import Cell from './Cell'
 import { KeyFilterState } from './keyFilter'
+import { ColumnProjectionState, ProjectionColumn, getValueByRelativePath } from './columnProjection'
 
 interface DataColumn {
   header: string
+  valuePath?: string
 }
 
 interface ArrayRowProps {
@@ -30,6 +32,14 @@ interface ArrayRowProps {
   onApplyKeyFilter?: (path: string, allKeys: string[]) => void
   onCancelKeyFilterSelection?: (path: string) => void
   onClearKeyFilter?: (path: string) => void
+  columnProjectionMode?: boolean
+  columnProjections?: ColumnProjectionState
+  onBeginColumnProjectionSelection?: (path: string, allColumns: ProjectionColumn[]) => void
+  onDraftColumnSelectedChange?: (path: string, columnPath: string, selected: boolean) => void
+  onDraftColumnProjectionQueryChange?: (path: string, query: string) => void
+  onApplyColumnProjection?: (path: string, allColumns: ProjectionColumn[]) => void
+  onCancelColumnProjectionSelection?: (path: string) => void
+  onClearColumnProjection?: (path: string) => void
 }
 
 const ArrayRow: React.FC<ArrayRowProps> = ({
@@ -55,7 +65,15 @@ const ArrayRow: React.FC<ArrayRowProps> = ({
   onDraftKeyFilterQueryChange,
   onApplyKeyFilter,
   onCancelKeyFilterSelection,
-  onClearKeyFilter
+  onClearKeyFilter,
+  columnProjectionMode = false,
+  columnProjections = {},
+  onBeginColumnProjectionSelection,
+  onDraftColumnSelectedChange,
+  onDraftColumnProjectionQueryChange,
+  onApplyColumnProjection,
+  onCancelColumnProjectionSelection,
+  onClearColumnProjection
 }) => {
   const typeOfEl = Array.isArray(element) ? 'array' : element === null ? 'null' : typeof element
 
@@ -63,32 +81,43 @@ const ArrayRow: React.FC<ArrayRowProps> = ({
     <tr className={`array-el ${typeOfEl}`}>
       <td className={`index ${typeOfEl}`}>{index}</td>
       {typeOfEl === 'object' ? (
-        dataColumns.map(({ header }) => (
-          <td key={header} className="member">
-            <Cell
-              element={element[header]}
-              depth={depth + 1}
-              searchQuery={searchQuery}
-              searchResults={searchResults}
-              currentResultIndex={currentResultIndex}
-              searchInputRef={searchInputRef}
-              path={`${path}.${header}`}
-              isEditMode={isEditMode}
-              onDataChange={onDataChange}
-              onDelete={onDelete}
-              onExpandedChange={onExpandedChange}
-              expandedPaths={expandedPaths}
-              keyFilterMode={keyFilterMode}
-              keyFilters={keyFilters}
-              onBeginKeyFilterSelection={onBeginKeyFilterSelection}
-              onDraftKeySelectedChange={onDraftKeySelectedChange}
-              onDraftKeyFilterQueryChange={onDraftKeyFilterQueryChange}
-              onApplyKeyFilter={onApplyKeyFilter}
-              onCancelKeyFilterSelection={onCancelKeyFilterSelection}
-              onClearKeyFilter={onClearKeyFilter}
-            />
-          </td>
-        ))
+        dataColumns.map(({ header, valuePath }) => {
+          const relativePath = valuePath ?? header
+          return (
+            <td key={relativePath} className="member">
+              <Cell
+                element={getValueByRelativePath(element, relativePath)}
+                depth={depth + 1}
+                searchQuery={searchQuery}
+                searchResults={searchResults}
+                currentResultIndex={currentResultIndex}
+                searchInputRef={searchInputRef}
+                path={`${path}.${relativePath}`}
+                isEditMode={isEditMode}
+                onDataChange={onDataChange}
+                onDelete={onDelete}
+                onExpandedChange={onExpandedChange}
+                expandedPaths={expandedPaths}
+                keyFilterMode={keyFilterMode}
+                keyFilters={keyFilters}
+                onBeginKeyFilterSelection={onBeginKeyFilterSelection}
+                onDraftKeySelectedChange={onDraftKeySelectedChange}
+                onDraftKeyFilterQueryChange={onDraftKeyFilterQueryChange}
+                onApplyKeyFilter={onApplyKeyFilter}
+                onCancelKeyFilterSelection={onCancelKeyFilterSelection}
+                onClearKeyFilter={onClearKeyFilter}
+                columnProjectionMode={columnProjectionMode}
+                columnProjections={columnProjections}
+                onBeginColumnProjectionSelection={onBeginColumnProjectionSelection}
+                onDraftColumnSelectedChange={onDraftColumnSelectedChange}
+                onDraftColumnProjectionQueryChange={onDraftColumnProjectionQueryChange}
+                onApplyColumnProjection={onApplyColumnProjection}
+                onCancelColumnProjectionSelection={onCancelColumnProjectionSelection}
+                onClearColumnProjection={onClearColumnProjection}
+              />
+            </td>
+          )
+        })
       ) : (
         <td className="value" colSpan={valueColSpan}>
           <Cell
@@ -104,6 +133,14 @@ const ArrayRow: React.FC<ArrayRowProps> = ({
             onDelete={onDelete}
             onExpandedChange={onExpandedChange}
             expandedPaths={expandedPaths}
+            columnProjectionMode={columnProjectionMode}
+            columnProjections={columnProjections}
+            onBeginColumnProjectionSelection={onBeginColumnProjectionSelection}
+            onDraftColumnSelectedChange={onDraftColumnSelectedChange}
+            onDraftColumnProjectionQueryChange={onDraftColumnProjectionQueryChange}
+            onApplyColumnProjection={onApplyColumnProjection}
+            onCancelColumnProjectionSelection={onCancelColumnProjectionSelection}
+            onClearColumnProjection={onClearColumnProjection}
           />
         </td>
       )}

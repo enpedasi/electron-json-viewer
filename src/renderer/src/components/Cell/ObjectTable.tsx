@@ -2,6 +2,7 @@ import React, { memo, useMemo, useState, useCallback } from 'react'
 import ResizableTable from './ResizableTable'
 import Cell from './Cell'
 import { KeyFilterState } from './keyFilter'
+import { ColumnProjectionState, ProjectionColumn } from './columnProjection'
 
 interface ObjectTableProps {
   member: Record<string, any>
@@ -26,6 +27,14 @@ interface ObjectTableProps {
   onApplyKeyFilter?: (path: string, allKeys: string[]) => void
   onCancelKeyFilterSelection?: (path: string) => void
   onClearKeyFilter?: (path: string) => void
+  columnProjectionMode?: boolean
+  columnProjections?: ColumnProjectionState
+  onBeginColumnProjectionSelection?: (path: string, allColumns: ProjectionColumn[]) => void
+  onDraftColumnSelectedChange?: (path: string, columnPath: string, selected: boolean) => void
+  onDraftColumnProjectionQueryChange?: (path: string, query: string) => void
+  onApplyColumnProjection?: (path: string, allColumns: ProjectionColumn[]) => void
+  onCancelColumnProjectionSelection?: (path: string) => void
+  onClearColumnProjection?: (path: string) => void
 }
 
 interface Header {
@@ -55,7 +64,15 @@ const ObjectTable: React.FC<ObjectTableProps> = ({
   onDraftKeyFilterQueryChange,
   onApplyKeyFilter,
   onCancelKeyFilterSelection,
-  onClearKeyFilter
+  onClearKeyFilter,
+  columnProjectionMode = false,
+  columnProjections = {},
+  onBeginColumnProjectionSelection,
+  onDraftColumnSelectedChange,
+  onDraftColumnProjectionQueryChange,
+  onApplyColumnProjection,
+  onCancelColumnProjectionSelection,
+  onClearColumnProjection
 }) => {
   const headers: Header[] = useMemo(() => {
     const base = [
@@ -172,6 +189,14 @@ const ObjectTable: React.FC<ObjectTableProps> = ({
               onApplyKeyFilter={onApplyKeyFilter}
               onCancelKeyFilterSelection={onCancelKeyFilterSelection}
               onClearKeyFilter={onClearKeyFilter}
+              columnProjectionMode={columnProjectionMode}
+              columnProjections={columnProjections}
+              onBeginColumnProjectionSelection={onBeginColumnProjectionSelection}
+              onDraftColumnSelectedChange={onDraftColumnSelectedChange}
+              onDraftColumnProjectionQueryChange={onDraftColumnProjectionQueryChange}
+              onApplyColumnProjection={onApplyColumnProjection}
+              onCancelColumnProjectionSelection={onCancelColumnProjectionSelection}
+              onClearColumnProjection={onClearColumnProjection}
             />
           </td>
           {isEditMode && (

@@ -4,6 +4,13 @@ import TextEditor from './TextEditor'
 import { TabState } from '../../App'
 import '../../App.css'
 import { hasAnyActiveKeyFilter, applyKeyFiltersToData } from '../Cell/keyFilter'
+import {
+  ColumnProjectionState,
+  ProjectionColumn,
+  hasAnyActiveColumnProjection,
+  collectArrayLeafColumns,
+  applyColumnProjectionsToData
+} from '../Cell/columnProjection'
 
 interface JsonViewProps {
   tabData: TabState
@@ -33,6 +40,13 @@ interface JsonViewProps {
   onApplyKeyFilter?: (path: string, allKeys: string[]) => void
   onCancelKeyFilterSelection?: (path: string) => void
   onClearKeyFilter?: (path: string) => void
+  onToggleColumnProjectionMode?: () => void
+  onBeginColumnProjectionSelection?: (path: string, allColumns: ProjectionColumn[]) => void
+  onDraftColumnSelectedChange?: (path: string, columnPath: string, selected: boolean) => void
+  onDraftColumnProjectionQueryChange?: (path: string, query: string) => void
+  onApplyColumnProjection?: (path: string, allColumns: ProjectionColumn[]) => void
+  onCancelColumnProjectionSelection?: (path: string) => void
+  onClearColumnProjection?: (path: string) => void
   onPasteTab?: () => void
 }
 
@@ -64,6 +78,13 @@ const JsonViewComponent: React.FC<JsonViewProps> = ({
   onApplyKeyFilter,
   onCancelKeyFilterSelection,
   onClearKeyFilter,
+  onToggleColumnProjectionMode,
+  onBeginColumnProjectionSelection,
+  onDraftColumnSelectedChange,
+  onDraftColumnProjectionQueryChange,
+  onApplyColumnProjection,
+  onCancelColumnProjectionSelection,
+  onClearColumnProjection,
   onPasteTab
 }) => {
   const searchInputRef = useRef<HTMLInputElement>(null)
@@ -227,8 +248,15 @@ const JsonViewComponent: React.FC<JsonViewProps> = ({
             >
               キー絞込{hasAnyActiveKeyFilter(tabData.keyFilters) ? ' *' : ''}
             </button>
+            <button
+              className={`floating-btn ${tabData.columnProjectionMode ? 'active' : ''}`}
+              onClick={onToggleColumnProjectionMode}
+              title="配列のネストした値を列として選択"
+            >
+              列選択{hasAnyActiveColumnProjection(tabData.columnProjections) ? ' *' : ''}
+            </button>
             <span className="floating-separator" />
-            <CopyFilterButton jsonData={tabData.jsonData} keyFilters={tabData.keyFilters} />
+            <CopyFilterButton jsonData={tabData.jsonData} keyFilters={tabData.keyFilters} columnProjections={tabData.columnProjections} />
             {isEditMode && <span className="floating-separator" />}
             {isEditMode && (
               <>
@@ -336,6 +364,14 @@ const JsonViewComponent: React.FC<JsonViewProps> = ({
                 onApplyKeyFilter={onApplyKeyFilter}
                 onCancelKeyFilterSelection={onCancelKeyFilterSelection}
                 onClearKeyFilter={onClearKeyFilter}
+                columnProjectionMode={tabData.columnProjectionMode}
+                columnProjections={tabData.columnProjections}
+                onBeginColumnProjectionSelection={onBeginColumnProjectionSelection}
+                onDraftColumnSelectedChange={onDraftColumnSelectedChange}
+                onDraftColumnProjectionQueryChange={onDraftColumnProjectionQueryChange}
+                onApplyColumnProjection={onApplyColumnProjection}
+                onCancelColumnProjectionSelection={onCancelColumnProjectionSelection}
+                onClearColumnProjection={onClearColumnProjection}
               />
             </div>
           )
@@ -368,30 +404,35 @@ const JsonViewComponent: React.FC<JsonViewProps> = ({
 
 function CopyFilterButton({
   jsonData,
-  keyFilters
+  keyFilters,
+  columnProjections
 }: {
   jsonData: unknown
   keyFilters: import('../Cell/keyFilter').KeyFilterState
+  columnProjections: ColumnProjectionState
 }) {
   const [copied, setCopied] = useState(false)
   const hasFilters = hasAnyActiveKeyFilter(keyFilters)
+  const hasProjections = hasAnyActiveColumnProjection(columnProjections)
+  const hasAny = hasFilters || hasProjections
 
   const handleClick = useCallback(() => {
-    const filtered = applyKeyFiltersToData(jsonData, keyFilters)
-    const text = JSON.stringify(filtered, null, 2)
+    let data = applyKeyFiltersToData(jsonData, keyFilters)
+    data = applyColumnProjectionsToData(data, columnProjections)
+    const text = JSON.stringify(data, null, 2)
     navigator.clipboard.writeText(text).then(() => {
       setCopied(true)
       window.setTimeout(() => setCopied(false), 1500)
     })
-  }, [jsonData, keyFilters])
+  }, [jsonData, keyFilters, columnProjections])
 
   return (
     <button
       className={`floating-btn ${copied ? 'active' : ''}`}
       onClick={handleClick}
-      disabled={!hasFilters}
-      title={copied ? 'コピーしました' : 'フィルター適用後のデータをコピー'}
-      aria-label="フィルター適用後のデータをコピー"
+      disabled={!hasAny}
+      title={copied ? 'コピーしました' : 'フィルター/列選択適用後のデータをコピー'}
+      aria-label="フィルター/列選択適用後のデータをコピー"
     >
       <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
         <path d="M4 2a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v1h1a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h1V2zm2-1a1 1 0 0 0-1 1v1h6V2a1 1 0 0 0-1-1H6zM3 4a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V5a1 1 0 0 0-1-1H3z" />

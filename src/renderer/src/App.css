@@ -938,3 +938,111 @@ tr:hover .delete-row-btn {
 th.filtered-column {
   background: rgba(0, 122, 204, 0.18);
 }
+
+.column-projection-panel,
+.column-projection-summary {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: min(720px, calc(100vw - 80px));
+  margin: 4px 0;
+  padding: 8px;
+  border: 1px solid #3c3c3c;
+  border-radius: 4px;
+  background: #252526;
+  color: var(--vscode-editor-foreground);
+  font-size: 12px;
+}
+
+.column-projection-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.column-projection-title {
+  font-weight: 600;
+}
+
+.column-projection-badge {
+  color: #cccccc;
+  font-size: 11px;
+}
+
+.column-projection-search {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 4px 6px;
+  border: 1px solid #3c3c3c;
+  border-radius: 3px;
+  background: #3c3c3c;
+  color: var(--vscode-editor-foreground);
+  font-size: 12px;
+}
+
+.column-projection-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 4px 10px;
+  max-height: 180px;
+  overflow: auto;
+}
+
+.column-projection-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.column-projection-path {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.column-projection-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.column-projection-action,
+.column-projection-inline-clear {
+  padding: 3px 8px;
+  border: 1px solid #3c3c3c;
+  border-radius: 3px;
+  background: #333;
+  color: var(--vscode-editor-foreground);
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.column-projection-action:hover:not(:disabled),
+.column-projection-inline-clear:hover {
+  background: #505050;
+}
+
+.column-projection-action:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.column-projection-action.primary {
+  background: #0e639c;
+  border-color: #1177bb;
+}
+
+.column-projection-summary {
+  flex-direction: row;
+  align-items: center;
+  width: fit-content;
+}
+
+.column-projection-inline-clear {
+  margin-left: 6px;
+}
+
+th.projected-column {
+  background: rgba(14, 99, 156, 0.22);
+}

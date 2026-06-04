@@ -4,6 +4,7 @@ import ObjectTable from './ObjectTable'
 import EditableCell from './EditableCell'
 import { isPathExpanded } from './expandedPaths'
 import { KeyFilterState } from './keyFilter'
+import { ColumnProjectionState, ProjectionColumn } from './columnProjection'
 
 interface CellProps {
   element: any
@@ -27,6 +28,14 @@ interface CellProps {
   onApplyKeyFilter?: (path: string, allKeys: string[]) => void
   onCancelKeyFilterSelection?: (path: string) => void
   onClearKeyFilter?: (path: string) => void
+  columnProjectionMode?: boolean
+  columnProjections?: ColumnProjectionState
+  onBeginColumnProjectionSelection?: (path: string, allColumns: ProjectionColumn[]) => void
+  onDraftColumnSelectedChange?: (path: string, columnPath: string, selected: boolean) => void
+  onDraftColumnProjectionQueryChange?: (path: string, query: string) => void
+  onApplyColumnProjection?: (path: string, allColumns: ProjectionColumn[]) => void
+  onCancelColumnProjectionSelection?: (path: string) => void
+  onClearColumnProjection?: (path: string) => void
 }
 
 const Cell: React.FC<CellProps> = ({
@@ -50,7 +59,15 @@ const Cell: React.FC<CellProps> = ({
   onDraftKeyFilterQueryChange,
   onApplyKeyFilter,
   onCancelKeyFilterSelection,
-  onClearKeyFilter
+  onClearKeyFilter,
+  columnProjectionMode = false,
+  columnProjections = {},
+  onBeginColumnProjectionSelection,
+  onDraftColumnSelectedChange,
+  onDraftColumnProjectionQueryChange,
+  onApplyColumnProjection,
+  onCancelColumnProjectionSelection,
+  onClearColumnProjection
 }) => {
   const cellRef = useRef<HTMLDivElement>(null)
   const shouldAutoExpand =
@@ -131,6 +148,14 @@ const Cell: React.FC<CellProps> = ({
             onApplyKeyFilter={onApplyKeyFilter}
             onCancelKeyFilterSelection={onCancelKeyFilterSelection}
             onClearKeyFilter={onClearKeyFilter}
+            columnProjectionMode={columnProjectionMode}
+            columnProjections={columnProjections}
+            onBeginColumnProjectionSelection={onBeginColumnProjectionSelection}
+            onDraftColumnSelectedChange={onDraftColumnSelectedChange}
+            onDraftColumnProjectionQueryChange={onDraftColumnProjectionQueryChange}
+            onApplyColumnProjection={onApplyColumnProjection}
+            onCancelColumnProjectionSelection={onCancelColumnProjectionSelection}
+            onClearColumnProjection={onClearColumnProjection}
           />
         )}
       </div>
@@ -164,6 +189,14 @@ const Cell: React.FC<CellProps> = ({
             onApplyKeyFilter={onApplyKeyFilter}
             onCancelKeyFilterSelection={onCancelKeyFilterSelection}
             onClearKeyFilter={onClearKeyFilter}
+            columnProjectionMode={columnProjectionMode}
+            columnProjections={columnProjections}
+            onBeginColumnProjectionSelection={onBeginColumnProjectionSelection}
+            onDraftColumnSelectedChange={onDraftColumnSelectedChange}
+            onDraftColumnProjectionQueryChange={onDraftColumnProjectionQueryChange}
+            onApplyColumnProjection={onApplyColumnProjection}
+            onCancelColumnProjectionSelection={onCancelColumnProjectionSelection}
+            onClearColumnProjection={onClearColumnProjection}
           />
         )}
       </div>

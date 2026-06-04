@@ -38,6 +38,17 @@ import {
   clearAppliedKeyFilter,
   createEmptyKeyFilterState
 } from './components/Cell/keyFilter'
+import {
+  ColumnProjectionState,
+  beginColumnProjectionSelection,
+  setDraftColumnSelected,
+  setDraftColumnQuery,
+  applyDraftColumnProjection,
+  cancelColumnProjectionSelection,
+  clearColumnProjection,
+  createEmptyColumnProjectionState,
+  ProjectionColumn
+} from './components/Cell/columnProjection'
 
 export type ViewMode = 'grid' | 'text'
 export type EditMode = 'view' | 'edit'
@@ -73,6 +84,8 @@ export interface TabState {
   scrollTop: number
   keyFilterMode: boolean
   keyFilters: KeyFilterState
+  columnProjectionMode: boolean
+  columnProjections: ColumnProjectionState
 }
 
 const MAX_HISTORY = 100
@@ -118,7 +131,9 @@ function App() {
         expandedPaths: [],
         scrollTop: 0,
         keyFilterMode: false,
-        keyFilters: createEmptyKeyFilterState()
+        keyFilters: createEmptyKeyFilterState(),
+        columnProjectionMode: false,
+        columnProjections: createEmptyColumnProjectionState()
       }
     },
     []
@@ -306,7 +321,9 @@ function App() {
           expandedPaths: [],
           scrollTop: 0,
           keyFilterMode: false,
-          keyFilters: createEmptyKeyFilterState()
+          keyFilters: createEmptyKeyFilterState(),
+          columnProjectionMode: false,
+          columnProjections: createEmptyColumnProjectionState()
         })
       } catch (error: any) {
         console.error('Error loading file into tab:', filePath, error)
@@ -481,6 +498,121 @@ function App() {
           return {
             ...tab,
             keyFilters: clearAppliedKeyFilter(tab.keyFilters, path),
+            searchResults: [],
+            currentResultIndex: -1
+          }
+        })
+      )
+    },
+    [activeTabId]
+  )
+
+  const toggleColumnProjectionMode = useCallback(() => {
+    if (!activeTabId) return
+    setTabs((prevTabs) =>
+      prevTabs.map((tab) => {
+        if (tab.id !== activeTabId) return tab
+        return { ...tab, columnProjectionMode: !tab.columnProjectionMode }
+      })
+    )
+  }, [activeTabId])
+
+  const handleBeginColumnProjectionSelection = useCallback(
+    (path: string, allColumns: ProjectionColumn[]) => {
+      if (!activeTabId) return
+      setTabs((prevTabs) =>
+        prevTabs.map((tab) => {
+          if (tab.id !== activeTabId) return tab
+          return {
+            ...tab,
+            columnProjections: beginColumnProjectionSelection(tab.columnProjections, path, allColumns)
+          }
+        })
+      )
+    },
+    [activeTabId]
+  )
+
+  const handleDraftColumnSelectedChange = useCallback(
+    (path: string, columnPath: string, selected: boolean) => {
+      if (!activeTabId) return
+      setTabs((prevTabs) =>
+        prevTabs.map((tab) => {
+          if (tab.id !== activeTabId) return tab
+          return {
+            ...tab,
+            columnProjections: setDraftColumnSelected(
+              tab.columnProjections,
+              path,
+              columnPath,
+              selected
+            )
+          }
+        })
+      )
+    },
+    [activeTabId]
+  )
+
+  const handleDraftColumnProjectionQueryChange = useCallback(
+    (path: string, query: string) => {
+      if (!activeTabId) return
+      setTabs((prevTabs) =>
+        prevTabs.map((tab) => {
+          if (tab.id !== activeTabId) return tab
+          return {
+            ...tab,
+            columnProjections: setDraftColumnQuery(tab.columnProjections, path, query)
+          }
+        })
+      )
+    },
+    [activeTabId]
+  )
+
+  const handleApplyColumnProjection = useCallback(
+    (path: string, allColumns: ProjectionColumn[]) => {
+      if (!activeTabId) return
+      setTabs((prevTabs) =>
+        prevTabs.map((tab) => {
+          if (tab.id !== activeTabId) return tab
+          return {
+            ...tab,
+            columnProjections: applyDraftColumnProjection(tab.columnProjections, path, allColumns),
+            searchResults: [],
+            currentResultIndex: -1
+          }
+        })
+      )
+    },
+    [activeTabId]
+  )
+
+  const handleCancelColumnProjectionSelection = useCallback(
+    (path: string) => {
+      if (!activeTabId) return
+      setTabs((prevTabs) =>
+        prevTabs.map((tab) => {
+          if (tab.id !== activeTabId) return tab
+          return {
+            ...tab,
+            columnProjections: cancelColumnProjectionSelection(tab.columnProjections, path)
+          }
+        })
+      )
+    },
+    [activeTabId]
+  )
+
+  const handleClearColumnProjection = useCallback(
+    (path: string) => {
+      if (!activeTabId) return
+      setTabs((prevTabs) =>
+        prevTabs.map((tab) => {
+          if (tab.id !== activeTabId) return tab
+          return {
+            ...tab,
+            columnProjections: clearColumnProjection(tab.columnProjections, path),
             searchResults: [],
             currentResultIndex: -1
           }
@@ -674,7 +806,8 @@ function App() {
     const results = searchJson(
       activeTabData.jsonData,
       activeTabData.searchQuery,
-      activeTabData.keyFilters
+      activeTabData.keyFilters,
+      activeTabData.columnProjections
     )
     updateTabData(activeTabData.id, {
       searchResults: results,
@@ -863,6 +996,13 @@ function App() {
             onApplyKeyFilter={handleApplyKeyFilter}
             onCancelKeyFilterSelection={handleCancelKeyFilterSelection}
             onClearKeyFilter={handleClearKeyFilter}
+            onToggleColumnProjectionMode={toggleColumnProjectionMode}
+            onBeginColumnProjectionSelection={handleBeginColumnProjectionSelection}
+            onDraftColumnSelectedChange={handleDraftColumnSelectedChange}
+            onDraftColumnProjectionQueryChange={handleDraftColumnProjectionQueryChange}
+            onApplyColumnProjection={handleApplyColumnProjection}
+            onCancelColumnProjectionSelection={handleCancelColumnProjectionSelection}
+            onClearColumnProjection={handleClearColumnProjection}
             onPasteTab={handlePasteToNewTab}
           />
         ) : (

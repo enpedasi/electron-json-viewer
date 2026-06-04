@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <radialGradient id="tile" cx="45%" cy="45%" r="72%">
+      <stop offset="0" stop-color="#0874f2"/>
+      <stop offset="0.55" stop-color="#0065df"/>
+      <stop offset="1" stop-color="#004eb8"/>
+    </radialGradient>
+    <linearGradient id="accent" x1="590" y1="472" x2="744" y2="628" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#32fff1"/>
+      <stop offset="1" stop-color="#13b4e7"/>
+    </linearGradient>
+    <filter id="softShadow" x="-15%" y="-15%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="8" stdDeviation="14" flood-color="#003a91" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+
+  <rect width="1024" height="1024" rx="190" fill="url(#tile)"/>
+
+  <g filter="url(#softShadow)">
+    <g fill="#fff">
+      <rect x="326" y="374" width="112" height="92" rx="6"/>
+      <rect x="454" y="374" width="112" height="92" rx="6"/>
+      <rect x="582" y="374" width="112" height="92" rx="6"/>
+      <rect x="326" y="486" width="112" height="92" rx="6"/>
+      <rect x="454" y="486" width="112" height="92" rx="6"/>
+      <rect x="326" y="598" width="112" height="92" rx="6"/>
+      <rect x="454" y="598" width="112" height="92" rx="6"/>
+    </g>
+    <path d="M582 486h105a7 7 0 0 1 7 7v81l-42 42h-70a7 7 0 0 1-7-7V493a7 7 0 0 1 7-7Z" fill="url(#accent)"/>
+  </g>
+
+  <g fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="48" filter="url(#softShadow)">
+    <path d="M334 299h-25c-51 0-85 36-85 89v75c0 52-26 84-74 103 48 19 74 51 74 103v75c0 53 34 89 85 89h25"/>
+    <path d="M690 299h25c51 0 85 36 85 89v75c0 52 26 84 74 103-48 19-74 51-74 103v75c0 53-34 89-85 89h-25"/>
+  </g>
+
+  <g filter="url(#softShadow)">
+    <path d="M594 753 705 642l52 52-111 111-55 16Z" fill="#fff"/>
+    <path d="M705 642 732 615a22 22 0 0 1 31 0l25 25a22 22 0 0 1 0 31l-27 27Z" fill="url(#accent)"/>
+    <path d="M594 753 646 805l-55 16Z" fill="#fff"/>
+    <path d="M612 771 628 787l-25 8Z" fill="#005fcf"/>
+    <path d="M724 623 779 678" fill="none" stroke="#0061d7" stroke-linecap="round" stroke-width="15"/>
+  </g>
+</svg>

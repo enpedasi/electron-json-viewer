@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import './App.css'
 import TabsComponent from './components/Tabs/TabsComponent'
 import JsonViewComponent from './components/JsonView/JsonViewComponent'
@@ -19,9 +19,36 @@ import {
   serializeData,
   validateText,
   defaultFileName,
-  FileType
+  getFileNameFromPath,
+  FileType,
+  tryParseClipboard
 } from './components/Cell/FileUtils'
+import { collectExpandablePaths, updateExpandedPaths } from './components/Cell/expandedPaths'
+import { updateTabScrollTop } from './components/JsonView/scrollPosition'
+import { planOpenedFiles } from './components/Tabs/openFiles'
 import { getDesktopApi, initTauriApi } from './platform'
+import { searchJson } from './components/JsonView/searchJson'
+import {
+  KeyFilterState,
+  beginKeyFilterSelection,
+  setDraftKeySelected,
+  setDraftQuery,
+  applyDraftKeyFilter,
+  cancelKeyFilterSelection,
+  clearAppliedKeyFilter,
+  createEmptyKeyFilterState
+} from './components/Cell/keyFilter'
+import {
+  ColumnProjectionState,
+  beginColumnProjectionSelection,
+  setDraftColumnSelected,
+  setDraftColumnQuery,
+  applyDraftColumnProjection,
+  cancelColumnProjectionSelection,
+  clearColumnProjection,
+  createEmptyColumnProjectionState,
+  ProjectionColumn
+} from './components/Cell/columnProjection'
 
 export type ViewMode = 'grid' | 'text'
 export type EditMode = 'view' | 'edit'
@@ -53,6 +80,12 @@ export interface TabState {
   viewMode: ViewMode
   fileType: FileType
   originalContent: string
+  expandedPaths: string[]
+  scrollTop: number
+  keyFilterMode: boolean
+  keyFilters: KeyFilterState
+  columnProjectionMode: boolean
+  columnProjections: ColumnProjectionState
 }
 
 const MAX_HISTORY = 100
@@ -61,38 +94,30 @@ function App() {
   const [tabs, setTabs] = useState<TabState[]>([])
   const [activeTabId, setActiveTabId] = useState<string | null>(null)
   const [searchVisible, setSearchVisible] = useState(false)
-
-  const getFileName = (path: string | null): string => {
-    if (!path) return 'Untitled'
-    try {
-      const api = getDesktopApi()
-      if (api?.platform) {
-        const separator = api.platform === 'win32' ? '\\' : '/'
-        return path.substring(path.lastIndexOf(separator) + 1)
-      }
-      return path.substring(path.lastIndexOf('/') + 1)
-    } catch (e) {
-      console.error('Error getting file name:', e)
-      return 'Untitled'
-    }
-  }
+  const tabsRef = useRef<TabState[]>([])
 
   const updateTabData = useCallback((tabId: string, updates: Partial<Omit<TabState, 'id'>>) => {
-    setTabs((prevTabs) => prevTabs.map((tab) => (tab.id === tabId ? { ...tab, ...updates } : tab)))
+    setTabs((prevTabs) => {
+      const nextTabs = prevTabs.map((tab) => (tab.id === tabId ? { ...tab, ...updates } : tab))
+      tabsRef.current = nextTabs
+      return nextTabs
+    })
   }, [])
 
   // --- アクティブなタブの取得 ---
   const activeTabData = tabs.find((tab) => tab.id === activeTabId)
 
-  // --- タブ操作 ---
-  const addTab = useCallback(
-    (filePath: string | null = null, data: any = null, makeActive = true): string => {
-      const newTabId = uuidv4()
-      const fileName = getFileName(filePath)
-      const newTab: TabState = {
-        id: newTabId,
+  useEffect(() => {
+    tabsRef.current = tabs
+  }, [tabs])
+
+  const createTabState = useCallback(
+    (filePath: string | null = null, data: any = null, id = uuidv4()): TabState => {
+      const fileType = filePath ? detectFileType(filePath) : 'json'
+      return {
+        id,
         filePath: filePath,
-        fileName: fileName,
+        fileName: getFileNameFromPath(filePath),
         jsonData: data,
         searchQuery: '',
         searchResults: [],
@@ -101,18 +126,89 @@ function App() {
         isDirty: false,
         history: { undo: [], redo: [] },
         viewMode: 'grid',
-        fileType: filePath ? detectFileType(filePath) : 'json',
-        originalContent:
-          data !== null ? serializeData(data, filePath ? detectFileType(filePath) : 'json') : ''
+        fileType,
+        originalContent: data !== null ? serializeData(data, fileType) : '',
+        expandedPaths: [],
+        scrollTop: 0,
+        keyFilterMode: false,
+        keyFilters: createEmptyKeyFilterState(),
+        columnProjectionMode: false,
+        columnProjections: createEmptyColumnProjectionState()
       }
-      setTabs((prevTabs) => [...prevTabs, newTab])
-      if (makeActive || tabs.length === 0) {
-        setActiveTabId(newTabId)
-      }
-      return newTabId
     },
-    [tabs.length]
+    []
   )
+
+  // --- タブ操作 ---
+  const addTab = useCallback(
+    (filePath: string | null = null, data: any = null, makeActive = true): string => {
+      const newTab = createTabState(filePath, data)
+      setTabs((prevTabs) => {
+        const nextTabs = [...prevTabs, newTab]
+        tabsRef.current = nextTabs
+        return nextTabs
+      })
+      if (makeActive || tabs.length === 0) {
+        setActiveTabId(newTab.id)
+      }
+      return newTab.id
+    },
+    [createTabState, tabs.length]
+  )
+
+  const handlePasteToNewTab = useCallback(async () => {
+    try {
+      const text = await navigator.clipboard.readText()
+      if (!text.trim()) return
+      const result = tryParseClipboard(text)
+      if (result) {
+        const activeTab = tabsRef.current.find((t) => t.id === activeTabId)
+        const isEmptyTab =
+          activeTab &&
+          activeTab.filePath === null &&
+          activeTab.jsonData === null &&
+          !activeTab.isDirty
+        if (isEmptyTab) {
+          updateTabData(activeTab!.id, {
+            jsonData: result.data,
+            fileType: result.fileType,
+            originalContent: text,
+            fileName: `Pasted ${result.fileType.toUpperCase()}`
+          })
+        } else {
+          const newTabId = addTab(null, result.data, true)
+          setTabs((prevTabs) =>
+            prevTabs.map((tab) =>
+              tab.id === newTabId
+                ? {
+                    ...tab,
+                    fileType: result.fileType,
+                    originalContent: text,
+                    fileName: `Pasted ${result.fileType.toUpperCase()}`
+                  }
+                : tab
+            )
+          )
+        }
+      } else {
+        const activeTab = tabsRef.current.find((t) => t.id === activeTabId)
+        const isEmptyTab =
+          activeTab &&
+          activeTab.filePath === null &&
+          activeTab.jsonData === null &&
+          !activeTab.isDirty
+        if (isEmptyTab) {
+          updateTabData(activeTab!.id, {
+            jsonData: { error: 'Clipboard content is not valid JSON or YAML' }
+          })
+        } else {
+          addTab(null, { error: 'Clipboard content is not valid JSON or YAML' }, true)
+        }
+      }
+    } catch (err) {
+      console.error('Failed to read clipboard:', err)
+    }
+  }, [activeTabId, addTab, updateTabData])
 
   // --- 保存 ---
   const handleSave = useCallback(
@@ -131,7 +227,7 @@ function App() {
         })
         if (!result || result.canceled) return false
 
-        const newFileName = getFileName(result.filePath)
+        const newFileName = getFileNameFromPath(result.filePath)
         const newFileType = detectFileType(result.filePath)
         setTabs((prevTabs) =>
           prevTabs.map((t) => {
@@ -194,7 +290,7 @@ function App() {
   // --- ファイル処理 ---
   const loadFileIntoTab = useCallback(
     async (filePath: string, tabId: string) => {
-      const existingTab = tabs.find((t) => t.id === tabId)
+      const existingTab = tabsRef.current.find((t) => t.id === tabId)
       if (existingTab && existingTab.jsonData) {
         console.log(`Tab ${tabId} already has data for ${filePath}`)
         return
@@ -209,23 +305,29 @@ function App() {
           updateTabData(tabId, {
             jsonData: { error: `Cannot read file outside Electron environment.` },
             filePath: filePath,
-            fileName: `Error - ${getFileName(filePath)}`
+            fileName: `Error - ${getFileNameFromPath(filePath)}`
           })
           return
         }
         const fileType = detectFileType(filePath)
         const parsed = parseContent(fileContent, fileType)
-        const fileName = getFileName(filePath)
+        const fileName = getFileNameFromPath(filePath)
         updateTabData(tabId, {
           jsonData: parsed,
           filePath: filePath,
           fileName: fileName,
           fileType: fileType,
-          originalContent: serializeData(parsed, fileType)
+          originalContent: serializeData(parsed, fileType),
+          expandedPaths: [],
+          scrollTop: 0,
+          keyFilterMode: false,
+          keyFilters: createEmptyKeyFilterState(),
+          columnProjectionMode: false,
+          columnProjections: createEmptyColumnProjectionState()
         })
       } catch (error: any) {
         console.error('Error loading file into tab:', filePath, error)
-        const fileName = getFileName(filePath)
+        const fileName = getFileNameFromPath(filePath)
         updateTabData(tabId, {
           jsonData: { error: `Failed to load or parse: ${error.message || error}` },
           filePath: filePath,
@@ -233,7 +335,40 @@ function App() {
         })
       }
     },
-    [updateTabData, tabs]
+    [updateTabData]
+  )
+
+  const prepareTabForFile = useCallback(
+    (tab: TabState, filePath: string): TabState => ({
+      ...createTabState(filePath, null, tab.id),
+      mode: tab.mode,
+      viewMode: tab.viewMode
+    }),
+    [createTabState]
+  )
+
+  const handleFilesOpened = useCallback(
+    (filePaths: string[]) => {
+      const currentTabs = tabsRef.current
+      const plan = planOpenedFiles({
+        tabs: currentTabs,
+        filePaths,
+        createTab: (filePath) => createTabState(filePath, null),
+        prepareTabForFile
+      })
+
+      if (plan.tabs !== currentTabs) {
+        tabsRef.current = plan.tabs
+        setTabs(plan.tabs)
+      }
+      if (plan.activeTabId) {
+        setActiveTabId(plan.activeTabId)
+      }
+      plan.filesToLoad.forEach(({ filePath, tabId }) => {
+        loadFileIntoTab(filePath, tabId)
+      })
+    },
+    [createTabState, loadFileIntoTab, prepareTabForFile]
   )
 
   const handleDrop = useCallback(async (e: DragEvent) => {
@@ -261,6 +396,231 @@ function App() {
       })
     )
   }, [activeTabId])
+
+  const toggleKeyFilterMode = useCallback(() => {
+    if (!activeTabId) return
+    setTabs((prevTabs) =>
+      prevTabs.map((tab) => {
+        if (tab.id !== activeTabId) return tab
+        return { ...tab, keyFilterMode: !tab.keyFilterMode }
+      })
+    )
+  }, [activeTabId])
+
+  const handleBeginKeyFilterSelection = useCallback(
+    (path: string, allKeys: string[]) => {
+      if (!activeTabId) return
+      setTabs((prevTabs) =>
+        prevTabs.map((tab) => {
+          if (tab.id !== activeTabId) return tab
+          return {
+            ...tab,
+            keyFilters: beginKeyFilterSelection(tab.keyFilters, path, allKeys)
+          }
+        })
+      )
+    },
+    [activeTabId]
+  )
+
+  const handleDraftKeySelectedChange = useCallback(
+    (path: string, key: string, selected: boolean) => {
+      if (!activeTabId) return
+      setTabs((prevTabs) =>
+        prevTabs.map((tab) => {
+          if (tab.id !== activeTabId) return tab
+          return {
+            ...tab,
+            keyFilters: setDraftKeySelected(tab.keyFilters, path, key, selected)
+          }
+        })
+      )
+    },
+    [activeTabId]
+  )
+
+  const handleDraftKeyFilterQueryChange = useCallback(
+    (path: string, query: string) => {
+      if (!activeTabId) return
+      setTabs((prevTabs) =>
+        prevTabs.map((tab) => {
+          if (tab.id !== activeTabId) return tab
+          return {
+            ...tab,
+            keyFilters: setDraftQuery(tab.keyFilters, path, query)
+          }
+        })
+      )
+    },
+    [activeTabId]
+  )
+
+  const handleApplyKeyFilter = useCallback(
+    (path: string, allKeys: string[]) => {
+      if (!activeTabId) return
+      setTabs((prevTabs) =>
+        prevTabs.map((tab) => {
+          if (tab.id !== activeTabId) return tab
+          return {
+            ...tab,
+            keyFilters: applyDraftKeyFilter(tab.keyFilters, path, allKeys),
+            searchResults: [],
+            currentResultIndex: -1
+          }
+        })
+      )
+    },
+    [activeTabId]
+  )
+
+  const handleCancelKeyFilterSelection = useCallback(
+    (path: string) => {
+      if (!activeTabId) return
+      setTabs((prevTabs) =>
+        prevTabs.map((tab) => {
+          if (tab.id !== activeTabId) return tab
+          return {
+            ...tab,
+            keyFilters: cancelKeyFilterSelection(tab.keyFilters, path)
+          }
+        })
+      )
+    },
+    [activeTabId]
+  )
+
+  const handleClearKeyFilter = useCallback(
+    (path: string) => {
+      if (!activeTabId) return
+      setTabs((prevTabs) =>
+        prevTabs.map((tab) => {
+          if (tab.id !== activeTabId) return tab
+          return {
+            ...tab,
+            keyFilters: clearAppliedKeyFilter(tab.keyFilters, path),
+            searchResults: [],
+            currentResultIndex: -1
+          }
+        })
+      )
+    },
+    [activeTabId]
+  )
+
+  const toggleColumnProjectionMode = useCallback(() => {
+    if (!activeTabId) return
+    setTabs((prevTabs) =>
+      prevTabs.map((tab) => {
+        if (tab.id !== activeTabId) return tab
+        return { ...tab, columnProjectionMode: !tab.columnProjectionMode }
+      })
+    )
+  }, [activeTabId])
+
+  const handleBeginColumnProjectionSelection = useCallback(
+    (path: string, allColumns: ProjectionColumn[]) => {
+      if (!activeTabId) return
+      setTabs((prevTabs) =>
+        prevTabs.map((tab) => {
+          if (tab.id !== activeTabId) return tab
+          return {
+            ...tab,
+            columnProjections: beginColumnProjectionSelection(tab.columnProjections, path, allColumns)
+          }
+        })
+      )
+    },
+    [activeTabId]
+  )
+
+  const handleDraftColumnSelectedChange = useCallback(
+    (path: string, columnPath: string, selected: boolean) => {
+      if (!activeTabId) return
+      setTabs((prevTabs) =>
+        prevTabs.map((tab) => {
+          if (tab.id !== activeTabId) return tab
+          return {
+            ...tab,
+            columnProjections: setDraftColumnSelected(
+              tab.columnProjections,
+              path,
+              columnPath,
+              selected
+            )
+          }
+        })
+      )
+    },
+    [activeTabId]
+  )
+
+  const handleDraftColumnProjectionQueryChange = useCallback(
+    (path: string, query: string) => {
+      if (!activeTabId) return
+      setTabs((prevTabs) =>
+        prevTabs.map((tab) => {
+          if (tab.id !== activeTabId) return tab
+          return {
+            ...tab,
+            columnProjections: setDraftColumnQuery(tab.columnProjections, path, query)
+          }
+        })
+      )
+    },
+    [activeTabId]
+  )
+
+  const handleApplyColumnProjection = useCallback(
+    (path: string, allColumns: ProjectionColumn[]) => {
+      if (!activeTabId) return
+      setTabs((prevTabs) =>
+        prevTabs.map((tab) => {
+          if (tab.id !== activeTabId) return tab
+          return {
+            ...tab,
+            columnProjections: applyDraftColumnProjection(tab.columnProjections, path, allColumns),
+            searchResults: [],
+            currentResultIndex: -1
+          }
+        })
+      )
+    },
+    [activeTabId]
+  )
+
+  const handleCancelColumnProjectionSelection = useCallback(
+    (path: string) => {
+      if (!activeTabId) return
+      setTabs((prevTabs) =>
+        prevTabs.map((tab) => {
+          if (tab.id !== activeTabId) return tab
+          return {
+            ...tab,
+            columnProjections: cancelColumnProjectionSelection(tab.columnProjections, path)
+          }
+        })
+      )
+    },
+    [activeTabId]
+  )
+
+  const handleClearColumnProjection = useCallback(
+    (path: string) => {
+      if (!activeTabId) return
+      setTabs((prevTabs) =>
+        prevTabs.map((tab) => {
+          if (tab.id !== activeTabId) return tab
+          return {
+            ...tab,
+            columnProjections: clearColumnProjection(tab.columnProjections, path),
+            searchResults: [],
+            currentResultIndex: -1
+          }
+        })
+      )
+    },
+    [activeTabId]
+  )
 
   // --- Undo/Redo ---
   const handleUndo = useCallback(() => {
@@ -406,10 +766,49 @@ function App() {
     [activeTabId, activeTabData]
   )
 
+  const handleExpandedChange = useCallback(
+    (path: string, expanded: boolean) => {
+      if (!activeTabId) return
+      setTabs((prevTabs) =>
+        prevTabs.map((tab) => {
+          if (tab.id !== activeTabId) return tab
+          return {
+            ...tab,
+            expandedPaths: updateExpandedPaths(tab.expandedPaths, path, expanded)
+          }
+        })
+      )
+    },
+    [activeTabId]
+  )
+
+  const handleScrollPositionChange = useCallback(
+    (scrollTop: number) => {
+      if (!activeTabId) return
+      setTabs((prevTabs) => updateTabScrollTop(prevTabs, activeTabId, scrollTop))
+    },
+    [activeTabId]
+  )
+
+  const handleExpandAll = useCallback(() => {
+    if (!activeTabId) return
+    setTabs((prevTabs) =>
+      prevTabs.map((tab) => {
+        if (tab.id !== activeTabId) return tab
+        return { ...tab, expandedPaths: collectExpandablePaths(tab.jsonData) }
+      })
+    )
+  }, [activeTabId])
+
   // --- 検索関連処理 ---
   const handleSearch = useCallback(() => {
     if (!activeTabData) return
-    const results = searchJson(activeTabData.jsonData, activeTabData.searchQuery)
+    const results = searchJson(
+      activeTabData.jsonData,
+      activeTabData.searchQuery,
+      activeTabData.keyFilters,
+      activeTabData.columnProjections
+    )
     updateTabData(activeTabData.id, {
       searchResults: results,
       currentResultIndex: results.length > 0 ? 0 : -1
@@ -465,7 +864,9 @@ function App() {
     if (tabs.length === 0) {
       addTab(null, null, true)
     }
+  }, [addTab, tabs.length])
 
+  useEffect(() => {
     const handleDragOver = (e: DragEvent) => {
       e.preventDefault()
       e.stopPropagation()
@@ -479,28 +880,7 @@ function App() {
     if (api?.handleFilesOpen) {
       removeFilesOpenListener = api.handleFilesOpen((event, filePaths) => {
         console.log('Files opened via event:', filePaths)
-        filePaths.forEach((filePath, index) => {
-          const existingTab = tabs.find((tab) => tab.filePath === filePath)
-          if (existingTab) {
-            setActiveTabId(existingTab.id)
-            if (index === 0) {
-              console.log(`Tab for ${filePath} already exists.`)
-            }
-          } else {
-            const isFirstFile = index === 0
-            const emptyUntitled = tabs.find(
-              (t) => t.filePath === null && t.jsonData === null && !t.isDirty
-            )
-            if (isFirstFile && emptyUntitled) {
-              loadFileIntoTab(filePath, emptyUntitled.id)
-              setActiveTabId(emptyUntitled.id)
-            } else {
-              const makeActive = index === 0
-              const newTabId = addTab(filePath, null, makeActive)
-              loadFileIntoTab(filePath, newTabId)
-            }
-          }
-        })
+        handleFilesOpened(filePaths)
       })
     }
 
@@ -521,7 +901,7 @@ function App() {
         removeShowSearchListener()
       }
     }
-  }, [addTab, handleDrop, loadFileIntoTab, tabs, apiReady])
+  }, [apiReady, handleDrop, handleFilesOpened])
 
   // --- キーボードショートカット ---
   useEffect(() => {
@@ -581,6 +961,7 @@ function App() {
         onAddTab={() => addTab(null, null, true)}
         onToggleEditMode={toggleEditMode}
         onToggleViewMode={toggleViewMode}
+        onSave={() => handleSave()}
         activeTabMode={activeTabData?.mode || 'view'}
         activeTabViewMode={activeTabData?.viewMode || 'grid'}
       />
@@ -605,6 +986,24 @@ function App() {
             onUndo={handleUndo}
             onRedo={handleRedo}
             onTextEditorChange={handleTextEditorChange}
+            onExpandedChange={handleExpandedChange}
+            onScrollPositionChange={handleScrollPositionChange}
+            onExpandAll={handleExpandAll}
+            onToggleKeyFilterMode={toggleKeyFilterMode}
+            onBeginKeyFilterSelection={handleBeginKeyFilterSelection}
+            onDraftKeySelectedChange={handleDraftKeySelectedChange}
+            onDraftKeyFilterQueryChange={handleDraftKeyFilterQueryChange}
+            onApplyKeyFilter={handleApplyKeyFilter}
+            onCancelKeyFilterSelection={handleCancelKeyFilterSelection}
+            onClearKeyFilter={handleClearKeyFilter}
+            onToggleColumnProjectionMode={toggleColumnProjectionMode}
+            onBeginColumnProjectionSelection={handleBeginColumnProjectionSelection}
+            onDraftColumnSelectedChange={handleDraftColumnSelectedChange}
+            onDraftColumnProjectionQueryChange={handleDraftColumnProjectionQueryChange}
+            onApplyColumnProjection={handleApplyColumnProjection}
+            onCancelColumnProjectionSelection={handleCancelColumnProjectionSelection}
+            onClearColumnProjection={handleClearColumnProjection}
+            onPasteTab={handlePasteToNewTab}
           />
         ) : (
           <div className="center-panel">
@@ -620,35 +1019,6 @@ function App() {
       </div>
     </div>
   )
-}
-
-function searchJson(json: any, query: string) {
-  const results: { path: string; value: any }[] = []
-  const searchQuery = query.toLowerCase()
-  const search = (obj: any, path = '') => {
-    if (typeof obj === 'object' && obj !== null) {
-      const currentDepth = path.split('.').length + path.split('[').length - 1
-      if (currentDepth > 50) {
-        return
-      }
-      for (const key in obj) {
-        if (obj.hasOwnProperty(key)) {
-          const value = obj[key]
-          const currentPath = Array.isArray(obj) ? `${path}[${key}]` : `${path}.${key}`
-          if (key.toLowerCase().includes(searchQuery)) {
-            results.push({ path: currentPath, value: key })
-          }
-          if (typeof value === 'object') {
-            search(value, currentPath)
-          } else if (String(value).toLowerCase().includes(searchQuery)) {
-            results.push({ path: currentPath, value })
-          }
-        }
-      }
-    }
-  }
-  search(json)
-  return results
 }
 
 export default App

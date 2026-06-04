@@ -1,6 +1,8 @@
 import React, { memo, useMemo, useState, useCallback } from 'react'
 import ResizableTable from './ResizableTable'
 import Cell from './Cell'
+import { KeyFilterState } from './keyFilter'
+import { ColumnProjectionState, ProjectionColumn } from './columnProjection'
 
 interface ObjectTableProps {
   member: Record<string, any>
@@ -15,6 +17,24 @@ interface ObjectTableProps {
   onDelete?: (path: string) => void
   onAddProperty?: (path: string, key: string, value: any) => void
   onRenameKey?: (path: string, oldKey: string, newKey: string) => void
+  onExpandedChange?: (path: string, expanded: boolean) => void
+  expandedPaths?: string[]
+  keyFilterMode?: boolean
+  keyFilters?: KeyFilterState
+  onBeginKeyFilterSelection?: (path: string, allKeys: string[]) => void
+  onDraftKeySelectedChange?: (path: string, key: string, selected: boolean) => void
+  onDraftKeyFilterQueryChange?: (path: string, query: string) => void
+  onApplyKeyFilter?: (path: string, allKeys: string[]) => void
+  onCancelKeyFilterSelection?: (path: string) => void
+  onClearKeyFilter?: (path: string) => void
+  columnProjectionMode?: boolean
+  columnProjections?: ColumnProjectionState
+  onBeginColumnProjectionSelection?: (path: string, allColumns: ProjectionColumn[]) => void
+  onDraftColumnSelectedChange?: (path: string, columnPath: string, selected: boolean) => void
+  onDraftColumnProjectionQueryChange?: (path: string, query: string) => void
+  onApplyColumnProjection?: (path: string, allColumns: ProjectionColumn[]) => void
+  onCancelColumnProjectionSelection?: (path: string) => void
+  onClearColumnProjection?: (path: string) => void
 }
 
 interface Header {
@@ -34,7 +54,25 @@ const ObjectTable: React.FC<ObjectTableProps> = ({
   onDataChange,
   onDelete,
   onAddProperty,
-  onRenameKey
+  onRenameKey,
+  onExpandedChange,
+  expandedPaths = [],
+  keyFilterMode = false,
+  keyFilters = {},
+  onBeginKeyFilterSelection,
+  onDraftKeySelectedChange,
+  onDraftKeyFilterQueryChange,
+  onApplyKeyFilter,
+  onCancelKeyFilterSelection,
+  onClearKeyFilter,
+  columnProjectionMode = false,
+  columnProjections = {},
+  onBeginColumnProjectionSelection,
+  onDraftColumnSelectedChange,
+  onDraftColumnProjectionQueryChange,
+  onApplyColumnProjection,
+  onCancelColumnProjectionSelection,
+  onClearColumnProjection
 }) => {
   const headers: Header[] = useMemo(() => {
     const base = [
@@ -141,6 +179,24 @@ const ObjectTable: React.FC<ObjectTableProps> = ({
               isEditMode={isEditMode}
               onDataChange={onDataChange}
               onDelete={onDelete}
+              onExpandedChange={onExpandedChange}
+              expandedPaths={expandedPaths}
+              keyFilterMode={keyFilterMode}
+              keyFilters={keyFilters}
+              onBeginKeyFilterSelection={onBeginKeyFilterSelection}
+              onDraftKeySelectedChange={onDraftKeySelectedChange}
+              onDraftKeyFilterQueryChange={onDraftKeyFilterQueryChange}
+              onApplyKeyFilter={onApplyKeyFilter}
+              onCancelKeyFilterSelection={onCancelKeyFilterSelection}
+              onClearKeyFilter={onClearKeyFilter}
+              columnProjectionMode={columnProjectionMode}
+              columnProjections={columnProjections}
+              onBeginColumnProjectionSelection={onBeginColumnProjectionSelection}
+              onDraftColumnSelectedChange={onDraftColumnSelectedChange}
+              onDraftColumnProjectionQueryChange={onDraftColumnProjectionQueryChange}
+              onApplyColumnProjection={onApplyColumnProjection}
+              onCancelColumnProjectionSelection={onCancelColumnProjectionSelection}
+              onClearColumnProjection={onClearColumnProjection}
             />
           </td>
           {isEditMode && (

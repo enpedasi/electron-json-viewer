@@ -1,5 +1,6 @@
 import React from 'react'
 import './TabsComponent.css'
+import { getFileNameFromPath } from '../Cell/FileUtils'
 
 interface TabInfo {
   id: string
@@ -16,6 +17,7 @@ interface TabsProps {
   onAddTab: () => void
   onToggleEditMode?: () => void
   onToggleViewMode?: () => void
+  onSave?: () => void
   activeTabMode?: string
   activeTabViewMode?: string
 }
@@ -28,10 +30,13 @@ const TabsComponent: React.FC<TabsProps> = ({
   onAddTab,
   onToggleEditMode,
   onToggleViewMode,
+  onSave,
   activeTabMode = 'view',
   activeTabViewMode = 'grid'
 }) => {
   const isEditMode = activeTabMode === 'edit'
+  const getTabDisplayName = (tab: TabInfo) =>
+    tab.filePath ? getFileNameFromPath(tab.filePath) : getFileNameFromPath(tab.fileName)
 
   return (
     <div className="tabs-container">
@@ -45,7 +50,7 @@ const TabsComponent: React.FC<TabsProps> = ({
           >
             <span className="tab-name">
               {tab.isDirty && <span className="dirty-marker">*</span>}
-              {tab.fileName}
+              {getTabDisplayName(tab)}
             </span>
             {(tabs.length > 1 || tab.filePath !== null) && (
               <button
@@ -54,7 +59,7 @@ const TabsComponent: React.FC<TabsProps> = ({
                   e.stopPropagation()
                   onCloseTab(tab.id)
                 }}
-                aria-label={`Close tab ${tab.fileName}`}
+                aria-label={`Close tab ${getTabDisplayName(tab)}`}
               >
                 ×
               </button>
@@ -66,6 +71,13 @@ const TabsComponent: React.FC<TabsProps> = ({
         </li>
       </ul>
       <div className="tab-mode-buttons">
+        <button
+          className="tab-mode-btn save-btn"
+          onClick={onSave}
+          title="保存"
+        >
+          💾 保存
+        </button>
         <button
           className={`tab-mode-btn ${isEditMode ? 'active' : ''}`}
           onClick={onToggleEditMode}

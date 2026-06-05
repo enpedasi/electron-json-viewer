@@ -40,6 +40,8 @@ interface ArrayRowProps {
   onApplyColumnProjection?: (path: string, allColumns: ProjectionColumn[]) => void
   onCancelColumnProjectionSelection?: (path: string) => void
   onClearColumnProjection?: (path: string) => void
+  onSaveSelectionOptions?: () => void
+  hasActiveSelection?: boolean
 }
 
 const ArrayRow: React.FC<ArrayRowProps> = ({
@@ -73,7 +75,9 @@ const ArrayRow: React.FC<ArrayRowProps> = ({
   onDraftColumnProjectionQueryChange,
   onApplyColumnProjection,
   onCancelColumnProjectionSelection,
-  onClearColumnProjection
+  onClearColumnProjection,
+  onSaveSelectionOptions,
+  hasActiveSelection = false
 }) => {
   const typeOfEl = Array.isArray(element) ? 'array' : element === null ? 'null' : typeof element
 
@@ -114,6 +118,8 @@ const ArrayRow: React.FC<ArrayRowProps> = ({
                 onApplyColumnProjection={onApplyColumnProjection}
                 onCancelColumnProjectionSelection={onCancelColumnProjectionSelection}
                 onClearColumnProjection={onClearColumnProjection}
+                onSaveSelectionOptions={onSaveSelectionOptions}
+                hasActiveSelection={hasActiveSelection}
               />
             </td>
           )
@@ -141,6 +147,8 @@ const ArrayRow: React.FC<ArrayRowProps> = ({
             onApplyColumnProjection={onApplyColumnProjection}
             onCancelColumnProjectionSelection={onCancelColumnProjectionSelection}
             onClearColumnProjection={onClearColumnProjection}
+            onSaveSelectionOptions={onSaveSelectionOptions}
+            hasActiveSelection={hasActiveSelection}
           />
         </td>
       )}

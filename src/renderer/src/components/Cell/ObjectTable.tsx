@@ -35,6 +35,8 @@ interface ObjectTableProps {
   onApplyColumnProjection?: (path: string, allColumns: ProjectionColumn[]) => void
   onCancelColumnProjectionSelection?: (path: string) => void
   onClearColumnProjection?: (path: string) => void
+  onSaveSelectionOptions?: () => void
+  hasActiveSelection?: boolean
 }
 
 interface Header {
@@ -72,7 +74,9 @@ const ObjectTable: React.FC<ObjectTableProps> = ({
   onDraftColumnProjectionQueryChange,
   onApplyColumnProjection,
   onCancelColumnProjectionSelection,
-  onClearColumnProjection
+  onClearColumnProjection,
+  onSaveSelectionOptions,
+  hasActiveSelection = false
 }) => {
   const headers: Header[] = useMemo(() => {
     const base = [
@@ -197,6 +201,8 @@ const ObjectTable: React.FC<ObjectTableProps> = ({
               onApplyColumnProjection={onApplyColumnProjection}
               onCancelColumnProjectionSelection={onCancelColumnProjectionSelection}
               onClearColumnProjection={onClearColumnProjection}
+              onSaveSelectionOptions={onSaveSelectionOptions}
+              hasActiveSelection={hasActiveSelection}
             />
           </td>
           {isEditMode && (

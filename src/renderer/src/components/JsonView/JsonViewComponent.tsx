@@ -48,6 +48,8 @@ interface JsonViewProps {
   onCancelColumnProjectionSelection?: (path: string) => void
   onClearColumnProjection?: (path: string) => void
   onPasteTab?: () => void
+  onSaveSelectionOptions?: () => void
+  hasActiveSelection?: boolean
 }
 
 const JsonViewComponent: React.FC<JsonViewProps> = ({
@@ -85,7 +87,9 @@ const JsonViewComponent: React.FC<JsonViewProps> = ({
   onApplyColumnProjection,
   onCancelColumnProjectionSelection,
   onClearColumnProjection,
-  onPasteTab
+  onPasteTab,
+  onSaveSelectionOptions,
+  hasActiveSelection
 }) => {
   const searchInputRef = useRef<HTMLInputElement>(null)
   const jsonViewerContainerRef = useRef<HTMLDivElement>(null)
@@ -372,6 +376,8 @@ const JsonViewComponent: React.FC<JsonViewProps> = ({
                 onApplyColumnProjection={onApplyColumnProjection}
                 onCancelColumnProjectionSelection={onCancelColumnProjectionSelection}
                 onClearColumnProjection={onClearColumnProjection}
+                onSaveSelectionOptions={onSaveSelectionOptions}
+                hasActiveSelection={hasActiveSelection}
               />
             </div>
           )

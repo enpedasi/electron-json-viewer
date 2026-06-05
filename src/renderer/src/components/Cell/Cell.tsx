@@ -36,6 +36,8 @@ interface CellProps {
   onApplyColumnProjection?: (path: string, allColumns: ProjectionColumn[]) => void
   onCancelColumnProjectionSelection?: (path: string) => void
   onClearColumnProjection?: (path: string) => void
+  onSaveSelectionOptions?: () => void
+  hasActiveSelection?: boolean
 }
 
 const Cell: React.FC<CellProps> = ({
@@ -67,7 +69,9 @@ const Cell: React.FC<CellProps> = ({
   onDraftColumnProjectionQueryChange,
   onApplyColumnProjection,
   onCancelColumnProjectionSelection,
-  onClearColumnProjection
+  onClearColumnProjection,
+  onSaveSelectionOptions,
+  hasActiveSelection
 }) => {
   const cellRef = useRef<HTMLDivElement>(null)
   const shouldAutoExpand =
@@ -156,6 +160,8 @@ const Cell: React.FC<CellProps> = ({
             onApplyColumnProjection={onApplyColumnProjection}
             onCancelColumnProjectionSelection={onCancelColumnProjectionSelection}
             onClearColumnProjection={onClearColumnProjection}
+            onSaveSelectionOptions={onSaveSelectionOptions}
+            hasActiveSelection={hasActiveSelection}
           />
         )}
       </div>
@@ -197,6 +203,8 @@ const Cell: React.FC<CellProps> = ({
             onApplyColumnProjection={onApplyColumnProjection}
             onCancelColumnProjectionSelection={onCancelColumnProjectionSelection}
             onClearColumnProjection={onClearColumnProjection}
+            onSaveSelectionOptions={onSaveSelectionOptions}
+            hasActiveSelection={hasActiveSelection}
           />
         )}
       </div>

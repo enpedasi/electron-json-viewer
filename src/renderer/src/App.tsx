@@ -25,7 +25,7 @@ import {
 } from './components/Cell/FileUtils'
 import { collectExpandablePaths, updateExpandedPaths } from './components/Cell/expandedPaths'
 import { updateTabScrollTop } from './components/JsonView/scrollPosition'
-import { planOpenedFiles } from './components/Tabs/openFiles'
+import { planOpenedFiles, isOptionFilePath } from './components/Tabs/openFiles'
 import { getDesktopApi, initTauriApi } from './platform'
 import { searchJson } from './components/JsonView/searchJson'
 import {
@@ -49,6 +49,13 @@ import {
   createEmptyColumnProjectionState,
   ProjectionColumn
 } from './components/Cell/columnProjection'
+import {
+  buildSelectionOptionsDto,
+  serializeSelectionOptions,
+  parseSelectionOptions,
+  applySelectionOptionsToData,
+  hasAnyActiveSelection
+} from './components/Cell/selectionOptions'
 
 export type ViewMode = 'grid' | 'text'
 export type EditMode = 'view' | 'edit'
@@ -347,12 +354,76 @@ function App() {
     [createTabState]
   )
 
+  const handleSaveSelectionOptions = useCallback(async () => {
+    const tab = tabsRef.current.find((t) => t.id === activeTabId)
+    if (!tab || !tab.jsonData) return
+    if (!hasAnyActiveSelection(tab.keyFilters, tab.columnProjections)) return
+
+    const fileName = tab.filePath ? getFileNameFromPath(tab.filePath) : 'untitled.json'
+    const defaultPath = `${fileName}.option`
+    const dto = buildSelectionOptionsDto(fileName, tab.keyFilters, tab.columnProjections)
+    const content = serializeSelectionOptions(dto)
+
+    try {
+      const result = await getDesktopApi()?.saveTextFile({ defaultPath, content })
+      if (!result || result.canceled) return
+    } catch (error) {
+      console.error('Error saving selection options:', error)
+    }
+  }, [activeTabId])
+
+  const handleApplySelectionOptions = useCallback(
+    async (filePath: string) => {
+      if (!activeTabId) return
+      const tab = tabsRef.current.find((t) => t.id === activeTabId)
+      if (!tab || !tab.jsonData) return
+
+      try {
+        const api = getDesktopApi()
+        if (!api?.readFile) return
+        const text = await api.readFile(filePath)
+        const options = parseSelectionOptions(text)
+        if (!options) return
+
+        const result = applySelectionOptionsToData(tab.jsonData, options)
+        const hasAnyResult =
+          Object.keys(result.keyFilters).length > 0 ||
+          Object.keys(result.columnProjections).length > 0
+        if (!hasAnyResult) return
+
+        setTabs((prevTabs) =>
+          prevTabs.map((t) => {
+            if (t.id !== activeTabId) return t
+            return {
+              ...t,
+              keyFilters: result.keyFilters,
+              columnProjections: result.columnProjections,
+              searchResults: [],
+              currentResultIndex: -1
+            }
+          })
+        )
+      } catch (error) {
+        console.error('Error applying selection options:', error)
+      }
+    },
+    [activeTabId]
+  )
+
   const handleFilesOpened = useCallback(
     (filePaths: string[]) => {
+      const optionFile = filePaths.find((fp) => isOptionFilePath(fp))
+      const nonOptionFiles = filePaths.filter((fp) => !isOptionFilePath(fp))
+
+      if (optionFile && nonOptionFiles.length === 0 && filePaths.length > 0) {
+        handleApplySelectionOptions(optionFile)
+        return
+      }
+
       const currentTabs = tabsRef.current
       const plan = planOpenedFiles({
         tabs: currentTabs,
-        filePaths,
+        filePaths: nonOptionFiles,
         createTab: (filePath) => createTabState(filePath, null),
         prepareTabForFile
       })
@@ -368,7 +439,7 @@ function App() {
         loadFileIntoTab(filePath, tabId)
       })
     },
-    [createTabState, loadFileIntoTab, prepareTabForFile]
+    [createTabState, loadFileIntoTab, prepareTabForFile, handleApplySelectionOptions]
   )
 
   const handleDrop = useCallback(async (e: DragEvent) => {
@@ -1004,6 +1075,11 @@ function App() {
             onCancelColumnProjectionSelection={handleCancelColumnProjectionSelection}
             onClearColumnProjection={handleClearColumnProjection}
             onPasteTab={handlePasteToNewTab}
+            onSaveSelectionOptions={handleSaveSelectionOptions}
+            hasActiveSelection={hasAnyActiveSelection(
+              activeTabData?.keyFilters ?? createEmptyKeyFilterState(),
+              activeTabData?.columnProjections ?? createEmptyColumnProjectionState()
+            )}
           />
         ) : (
           <div className="center-panel">

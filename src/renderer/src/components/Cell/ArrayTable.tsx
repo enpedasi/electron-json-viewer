@@ -14,6 +14,7 @@ import {
   getAppliedProjectionColumns,
   hasActiveColumnProjection
 } from './columnProjection'
+import { buildTsvFromColumns } from './tableTsv'
 
 interface Props {
   array: Array<any>
@@ -45,6 +46,8 @@ interface Props {
   onApplyColumnProjection?: (path: string, allColumns: ProjectionColumn[]) => void
   onCancelColumnProjectionSelection?: (path: string) => void
   onClearColumnProjection?: (path: string) => void
+  onSaveSelectionOptions?: () => void
+  hasActiveSelection?: boolean
 }
 
 const ArrayTable: React.FC<Props> = ({
@@ -76,7 +79,9 @@ const ArrayTable: React.FC<Props> = ({
   onDraftColumnProjectionQueryChange,
   onApplyColumnProjection,
   onCancelColumnProjectionSelection,
-  onClearColumnProjection
+  onClearColumnProjection,
+  onSaveSelectionOptions,
+  hasActiveSelection = false
 }) => {
   const allKeys = React.useMemo(() => collectObjectArrayKeys(array), [array])
   const filterState = keyFilters[path]
@@ -254,13 +259,62 @@ const ArrayTable: React.FC<Props> = ({
   const canApplyFilter = draftKeys.length > 0
   const hiddenCount = allKeys.length - visibleKeys.length
 
+  const handleTsvCopy = React.useCallback(() => {
+    if (dataColumns.length === 0) return
+
+    const tsvColumns = dataColumns.map((col) => ({
+      header: col.header,
+      valuePath: col.valuePath
+    }))
+
+    const tsv = buildTsvFromColumns(array, tsvColumns)
+
+    navigator.clipboard.writeText(tsv).catch((err) => {
+      console.error('Failed to copy TSV:', err)
+    })
+  }, [dataColumns, array, activeProjection, appliedProjectionColumns])
+
+  const [tsvCopied, setTsvCopied] = React.useState(false)
+
+  const handleTsvClick = React.useCallback(() => {
+    handleTsvCopy()
+    setTsvCopied(true)
+    window.setTimeout(() => setTsvCopied(false), 1500)
+  }, [handleTsvCopy])
+
   return (
     <>
+      <div className="array-table-header-row">
+        <button
+          className={`panel-header-icon-btn tsv-copy-btn ${tsvCopied ? 'copied' : ''}`}
+          onClick={handleTsvClick}
+          disabled={dataColumns.length === 0}
+          title={tsvCopied ? 'コピーしました' : '表示中の表をTSVコピー'}
+          aria-label={tsvCopied ? 'コピーしました' : '表示中の表をTSVコピー'}
+        >
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M4 2a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v1h1a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h1V2zm2-1a1 1 0 0 0-1 1v1h6V2a1 1 0 0 0-1-1H6zM3 4a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V5a1 1 0 0 0-1-1H3z" />
+          </svg>
+        </button>
+      </div>
       {keyFilterMode && allKeys.length > 0 && (
         <div className="key-filter-panel">
           <div className="key-filter-panel-header">
             <span className="key-filter-title">キー絞込</span>
-            {activeFilter && <span className="key-filter-badge">{hiddenCount} hidden</span>}
+            <div className="panel-header-actions">
+              <button
+                className="panel-header-icon-btn"
+                onClick={onSaveSelectionOptions}
+                disabled={!hasActiveSelection}
+                title="選択設定を保存"
+                aria-label="選択設定を保存"
+              >
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                  <path d="M13.5 1h-12A1.5 1.5 0 0 0 0 2.5v11A1.5 1.5 0 0 0 1.5 15h12a1.5 1.5 0 0 0 1.5-1.5V5l-4-4zM5 2h4v3H5V2zm6 12H5v-4h6v4zm2-.5a.5.5 0 0 1-.5.5H12V9H4v5H2.5a.5.5 0 0 1-.5-.5v-11a.5.5 0 0 1 .5-.5H4v4h6V2.5l3 3V13.5z" />
+                </svg>
+              </button>
+              {activeFilter && <span className="key-filter-badge">{hiddenCount} hidden</span>}
+            </div>
           </div>
           <input
             className="key-filter-search"
@@ -315,11 +369,24 @@ const ArrayTable: React.FC<Props> = ({
         <div className="column-projection-panel">
           <div className="column-projection-panel-header">
             <span className="column-projection-title">列選択</span>
-            {activeProjection && (
-              <span className="column-projection-badge">
-                {appliedProjectionColumns.length}/{projectionColumns.length}
-              </span>
-            )}
+            <div className="panel-header-actions">
+              <button
+                className="panel-header-icon-btn"
+                onClick={onSaveSelectionOptions}
+                disabled={!hasActiveSelection}
+                title="選択設定を保存"
+                aria-label="選択設定を保存"
+              >
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                  <path d="M13.5 1h-12A1.5 1.5 0 0 0 0 2.5v11A1.5 1.5 0 0 0 1.5 15h12a1.5 1.5 0 0 0 1.5-1.5V5l-4-4zM5 2h4v3H5V2zm6 12H5v-4h6v4zm2-.5a.5.5 0 0 1-.5.5H12V9H4v5H2.5a.5.5 0 0 1-.5-.5v-11a.5.5 0 0 1 .5-.5H4v4h6V2.5l3 3V13.5z" />
+                </svg>
+              </button>
+              {activeProjection && (
+                <span className="column-projection-badge">
+                  {appliedProjectionColumns.length}/{projectionColumns.length}
+                </span>
+              )}
+            </div>
           </div>
           <input
             className="column-projection-search"
@@ -430,6 +497,8 @@ const ArrayTable: React.FC<Props> = ({
             onApplyColumnProjection={onApplyColumnProjection}
             onCancelColumnProjectionSelection={onCancelColumnProjectionSelection}
             onClearColumnProjection={onClearColumnProjection}
+            onSaveSelectionOptions={onSaveSelectionOptions}
+            hasActiveSelection={hasActiveSelection}
           />
         ))}
         {isEditMode && (

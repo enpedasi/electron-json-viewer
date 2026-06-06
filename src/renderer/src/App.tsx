@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react'
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import './App.css'
 import TabsComponent from './components/Tabs/TabsComponent'
 import JsonViewComponent from './components/JsonView/JsonViewComponent'
@@ -56,6 +56,12 @@ import {
   applySelectionOptionsToData,
   hasAnyActiveSelection
 } from './components/Cell/selectionOptions'
+import {
+  Language,
+  createTranslator,
+  detectAppLanguage,
+  setStoredLanguage
+} from './i18n'
 
 export type ViewMode = 'grid' | 'text'
 export type EditMode = 'view' | 'edit'
@@ -101,7 +107,14 @@ function App() {
   const [tabs, setTabs] = useState<TabState[]>([])
   const [activeTabId, setActiveTabId] = useState<string | null>(null)
   const [searchVisible, setSearchVisible] = useState(false)
+  const [language, setLanguage] = useState<Language>(() => detectAppLanguage())
+  const t = useMemo(() => createTranslator(language), [language])
   const tabsRef = useRef<TabState[]>([])
+
+  const handleLanguageChange = useCallback((nextLanguage: Language) => {
+    setLanguage(nextLanguage)
+    setStoredLanguage(nextLanguage)
+  }, [])
 
   const updateTabData = useCallback((tabId: string, updates: Partial<Omit<TabState, 'id'>>) => {
     setTabs((prevTabs) => {
@@ -180,7 +193,7 @@ function App() {
             jsonData: result.data,
             fileType: result.fileType,
             originalContent: text,
-            fileName: `Pasted ${result.fileType.toUpperCase()}`
+            fileName: t('file.pasted', { type: result.fileType.toUpperCase() })
           })
         } else {
           const newTabId = addTab(null, result.data, true)
@@ -191,7 +204,7 @@ function App() {
                     ...tab,
                     fileType: result.fileType,
                     originalContent: text,
-                    fileName: `Pasted ${result.fileType.toUpperCase()}`
+                    fileName: t('file.pasted', { type: result.fileType.toUpperCase() })
                   }
                 : tab
             )
@@ -206,16 +219,16 @@ function App() {
           !activeTab.isDirty
         if (isEmptyTab) {
           updateTabData(activeTab!.id, {
-            jsonData: { error: 'Clipboard content is not valid JSON or YAML' }
+            jsonData: { error: t('file.clipboardInvalid') }
           })
         } else {
-          addTab(null, { error: 'Clipboard content is not valid JSON or YAML' }, true)
+          addTab(null, { error: t('file.clipboardInvalid') }, true)
         }
       }
     } catch (err) {
       console.error('Failed to read clipboard:', err)
     }
-  }, [activeTabId, addTab, updateTabData])
+  }, [activeTabId, addTab, updateTabData, t])
 
   // --- 保存 ---
   const handleSave = useCallback(
@@ -310,9 +323,9 @@ function App() {
         } else {
           console.warn('readFile not available and not in Electron context.')
           updateTabData(tabId, {
-            jsonData: { error: `Cannot read file outside Electron environment.` },
+            jsonData: { error: t('file.cannotRead') },
             filePath: filePath,
-            fileName: `Error - ${getFileNameFromPath(filePath)}`
+            fileName: t('file.errorPrefix', { name: getFileNameFromPath(filePath) })
           })
           return
         }
@@ -336,13 +349,13 @@ function App() {
         console.error('Error loading file into tab:', filePath, error)
         const fileName = getFileNameFromPath(filePath)
         updateTabData(tabId, {
-          jsonData: { error: `Failed to load or parse: ${error.message || error}` },
+          jsonData: { error: t('file.loadFailed', { message: error.message || String(error) }) },
           filePath: filePath,
-          fileName: `Error - ${fileName}`
+          fileName: t('file.errorPrefix', { name: fileName })
         })
       }
     },
-    [updateTabData]
+    [updateTabData, t]
   )
 
   const prepareTabForFile = useCallback(
@@ -1035,6 +1048,9 @@ function App() {
         onSave={() => handleSave()}
         activeTabMode={activeTabData?.mode || 'view'}
         activeTabViewMode={activeTabData?.viewMode || 'grid'}
+        language={language}
+        onLanguageChange={handleLanguageChange}
+        t={t}
       />
       <div className="json-view-area">
         {activeTabData ? (
@@ -1080,15 +1096,14 @@ function App() {
               activeTabData?.keyFilters ?? createEmptyKeyFilterState(),
               activeTabData?.columnProjections ?? createEmptyColumnProjectionState()
             )}
+            t={t}
           />
         ) : (
           <div className="center-panel">
             {tabs.length > 0 ? (
-              <p>タブを選択してください。</p>
+              <p>{t('app.selectTab')}</p>
             ) : (
-              <p>
-                ファイルを開くか、ドラッグ＆ドロップ、または「+」ボタンで新しいタブを開始してください。
-              </p>
+              <p>{t('app.start')}</p>
             )}
           </div>
         )}

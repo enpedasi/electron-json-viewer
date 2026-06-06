@@ -5,6 +5,7 @@ import EditableCell from './EditableCell'
 import { isPathExpanded } from './expandedPaths'
 import { KeyFilterState } from './keyFilter'
 import { ColumnProjectionState, ProjectionColumn } from './columnProjection'
+import { Translator } from '../../i18n'
 
 interface CellProps {
   element: any
@@ -38,6 +39,7 @@ interface CellProps {
   onClearColumnProjection?: (path: string) => void
   onSaveSelectionOptions?: () => void
   hasActiveSelection?: boolean
+  t: Translator
 }
 
 const Cell: React.FC<CellProps> = ({
@@ -71,7 +73,8 @@ const Cell: React.FC<CellProps> = ({
   onCancelColumnProjectionSelection,
   onClearColumnProjection,
   onSaveSelectionOptions,
-  hasActiveSelection
+  hasActiveSelection,
+  t
 }) => {
   const cellRef = useRef<HTMLDivElement>(null)
   const shouldAutoExpand =
@@ -120,7 +123,7 @@ const Cell: React.FC<CellProps> = ({
   }
 
   if (depth >= 100) {
-    return <span className="value">Max depth reached</span>
+    return <span className="value">{t('cell.maxDepth')}</span>
   }
 
   if (Array.isArray(element)) {
@@ -162,6 +165,7 @@ const Cell: React.FC<CellProps> = ({
             onClearColumnProjection={onClearColumnProjection}
             onSaveSelectionOptions={onSaveSelectionOptions}
             hasActiveSelection={hasActiveSelection}
+            t={t}
           />
         )}
       </div>
@@ -205,13 +209,14 @@ const Cell: React.FC<CellProps> = ({
             onClearColumnProjection={onClearColumnProjection}
             onSaveSelectionOptions={onSaveSelectionOptions}
             hasActiveSelection={hasActiveSelection}
+            t={t}
           />
         )}
       </div>
     )
   } else {
     if (isEditMode && onDataChange) {
-      return <EditableCell value={element} path={path} onCommit={onDataChange} />
+      return <EditableCell value={element} path={path} onCommit={onDataChange} t={t} />
     }
     const isCurrentValueResult =
       searchResults &&

@@ -2,6 +2,7 @@ import React from 'react'
 import Cell from './Cell'
 import { KeyFilterState } from './keyFilter'
 import { ColumnProjectionState, ProjectionColumn, getValueByRelativePath } from './columnProjection'
+import { Translator } from '../../i18n'
 
 interface DataColumn {
   header: string
@@ -42,6 +43,7 @@ interface ArrayRowProps {
   onClearColumnProjection?: (path: string) => void
   onSaveSelectionOptions?: () => void
   hasActiveSelection?: boolean
+  t: Translator
 }
 
 const ArrayRow: React.FC<ArrayRowProps> = ({
@@ -77,7 +79,8 @@ const ArrayRow: React.FC<ArrayRowProps> = ({
   onCancelColumnProjectionSelection,
   onClearColumnProjection,
   onSaveSelectionOptions,
-  hasActiveSelection = false
+  hasActiveSelection = false,
+  t
 }) => {
   const typeOfEl = Array.isArray(element) ? 'array' : element === null ? 'null' : typeof element
 
@@ -120,6 +123,7 @@ const ArrayRow: React.FC<ArrayRowProps> = ({
                 onClearColumnProjection={onClearColumnProjection}
                 onSaveSelectionOptions={onSaveSelectionOptions}
                 hasActiveSelection={hasActiveSelection}
+                t={t}
               />
             </td>
           )
@@ -149,6 +153,7 @@ const ArrayRow: React.FC<ArrayRowProps> = ({
             onClearColumnProjection={onClearColumnProjection}
             onSaveSelectionOptions={onSaveSelectionOptions}
             hasActiveSelection={hasActiveSelection}
+            t={t}
           />
         </td>
       )}
@@ -160,7 +165,7 @@ const ArrayRow: React.FC<ArrayRowProps> = ({
               e.stopPropagation()
               onDelete?.(path)
             }}
-            title="削除"
+            title={t('table.delete')}
           >
             ✕
           </button>

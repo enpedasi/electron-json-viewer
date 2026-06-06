@@ -15,6 +15,7 @@ import {
   hasActiveColumnProjection
 } from './columnProjection'
 import { buildTsvFromColumns } from './tableTsv'
+import { Translator } from '../../i18n'
 
 interface Props {
   array: Array<any>
@@ -48,6 +49,7 @@ interface Props {
   onClearColumnProjection?: (path: string) => void
   onSaveSelectionOptions?: () => void
   hasActiveSelection?: boolean
+  t: Translator
 }
 
 const ArrayTable: React.FC<Props> = ({
@@ -81,7 +83,8 @@ const ArrayTable: React.FC<Props> = ({
   onCancelColumnProjectionSelection,
   onClearColumnProjection,
   onSaveSelectionOptions,
-  hasActiveSelection = false
+  hasActiveSelection = false,
+  t
 }) => {
   const allKeys = React.useMemo(() => collectObjectArrayKeys(array), [array])
   const filterState = keyFilters[path]
@@ -289,8 +292,8 @@ const ArrayTable: React.FC<Props> = ({
           className={`panel-header-icon-btn tsv-copy-btn ${tsvCopied ? 'copied' : ''}`}
           onClick={handleTsvClick}
           disabled={dataColumns.length === 0}
-          title={tsvCopied ? 'コピーしました' : '表示中の表をTSVコピー'}
-          aria-label={tsvCopied ? 'コピーしました' : '表示中の表をTSVコピー'}
+          title={tsvCopied ? t('json.copied') : t('table.copyTsv')}
+          aria-label={tsvCopied ? t('json.copied') : t('table.copyTsv')}
         >
           <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
             <path d="M4 2a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v1h1a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h1V2zm2-1a1 1 0 0 0-1 1v1h6V2a1 1 0 0 0-1-1H6zM3 4a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V5a1 1 0 0 0-1-1H3z" />
@@ -300,20 +303,24 @@ const ArrayTable: React.FC<Props> = ({
       {keyFilterMode && allKeys.length > 0 && (
         <div className="key-filter-panel">
           <div className="key-filter-panel-header">
-            <span className="key-filter-title">キー絞込</span>
+            <span className="key-filter-title">{t('json.keyFilter')}</span>
             <div className="panel-header-actions">
               <button
                 className="panel-header-icon-btn"
                 onClick={onSaveSelectionOptions}
                 disabled={!hasActiveSelection}
-                title="選択設定を保存"
-                aria-label="選択設定を保存"
+                title={t('table.saveSelection')}
+                aria-label={t('table.saveSelection')}
               >
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
                   <path d="M13.5 1h-12A1.5 1.5 0 0 0 0 2.5v11A1.5 1.5 0 0 0 1.5 15h12a1.5 1.5 0 0 0 1.5-1.5V5l-4-4zM5 2h4v3H5V2zm6 12H5v-4h6v4zm2-.5a.5.5 0 0 1-.5.5H12V9H4v5H2.5a.5.5 0 0 1-.5-.5v-11a.5.5 0 0 1 .5-.5H4v4h6V2.5l3 3V13.5z" />
                 </svg>
               </button>
-              {activeFilter && <span className="key-filter-badge">{hiddenCount} hidden</span>}
+              {activeFilter && (
+                <span className="key-filter-badge">
+                  {t('table.hiddenCount', { count: hiddenCount })}
+                </span>
+              )}
             </div>
           </div>
           <input
@@ -321,7 +328,7 @@ const ArrayTable: React.FC<Props> = ({
             type="text"
             value={draftQuery}
             onChange={(event) => onDraftKeyFilterQueryChange?.(path, event.target.value)}
-            placeholder="キーを検索"
+            placeholder={t('table.searchKeys')}
           />
           <div className="key-filter-options">
             {selectableKeys.map((key) => (
@@ -343,39 +350,39 @@ const ArrayTable: React.FC<Props> = ({
               onClick={() => onApplyKeyFilter?.(path, allKeys)}
               disabled={!canApplyFilter}
             >
-              確定
+              {t('table.apply')}
             </button>
             <button className="key-filter-action" onClick={() => onClearKeyFilter?.(path)}>
-              解除
+              {t('table.clear')}
             </button>
             <button
               className="key-filter-action"
               onClick={() => onCancelKeyFilterSelection?.(path)}
             >
-              取消
+              {t('table.cancel')}
             </button>
           </div>
         </div>
       )}
       {activeFilter && !keyFilterMode && (
         <div className="key-filter-summary">
-          表示キー: {visibleKeys.join(', ')}
+          {t('table.visibleKeys', { keys: visibleKeys.join(', ') })}
           <button className="key-filter-inline-clear" onClick={() => onClearKeyFilter?.(path)}>
-            解除
+            {t('table.clear')}
           </button>
         </div>
       )}
       {columnProjectionMode && projectionColumns.length > 0 && (
         <div className="column-projection-panel">
           <div className="column-projection-panel-header">
-            <span className="column-projection-title">列選択</span>
+            <span className="column-projection-title">{t('json.columnProjection')}</span>
             <div className="panel-header-actions">
               <button
                 className="panel-header-icon-btn"
                 onClick={onSaveSelectionOptions}
                 disabled={!hasActiveSelection}
-                title="選択設定を保存"
-                aria-label="選択設定を保存"
+                title={t('table.saveSelection')}
+                aria-label={t('table.saveSelection')}
               >
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
                   <path d="M13.5 1h-12A1.5 1.5 0 0 0 0 2.5v11A1.5 1.5 0 0 0 1.5 15h12a1.5 1.5 0 0 0 1.5-1.5V5l-4-4zM5 2h4v3H5V2zm6 12H5v-4h6v4zm2-.5a.5.5 0 0 1-.5.5H12V9H4v5H2.5a.5.5 0 0 1-.5-.5v-11a.5.5 0 0 1 .5-.5H4v4h6V2.5l3 3V13.5z" />
@@ -396,7 +403,7 @@ const ArrayTable: React.FC<Props> = ({
               onDraftColumnProjectionQueryChange?.(path, event.target.value)
             }
             onKeyDown={handleProjectionSearchKeyDown}
-            placeholder="列パスを検索"
+            placeholder={t('table.searchColumnPaths')}
           />
           <div className="column-projection-options" ref={projectionListRef}>
             {filteredProjectionColumns
@@ -429,31 +436,33 @@ const ArrayTable: React.FC<Props> = ({
               onClick={() => onApplyColumnProjection?.(path, projectionColumns)}
               disabled={(projectionState?.draftColumnPaths.length ?? projectionColumns.length) === 0}
             >
-              確定
+              {t('table.apply')}
             </button>
             <button
               className="column-projection-action"
               onClick={() => onClearColumnProjection?.(path)}
             >
-              解除
+              {t('table.clear')}
             </button>
             <button
               className="column-projection-action"
               onClick={() => onCancelColumnProjectionSelection?.(path)}
             >
-              取消
+              {t('table.cancel')}
             </button>
           </div>
         </div>
       )}
       {activeProjection && !columnProjectionMode && (
         <div className="column-projection-summary">
-          表示列: {appliedProjectionColumns.map((column) => column.path).join(', ')}
+          {t('table.visibleColumns', {
+            columns: appliedProjectionColumns.map((column) => column.path).join(', ')
+          })}
           <button
             className="column-projection-inline-clear"
             onClick={() => onClearColumnProjection?.(path)}
           >
-            解除
+            {t('table.clear')}
           </button>
         </div>
       )}
@@ -499,13 +508,14 @@ const ArrayTable: React.FC<Props> = ({
             onClearColumnProjection={onClearColumnProjection}
             onSaveSelectionOptions={onSaveSelectionOptions}
             hasActiveSelection={hasActiveSelection}
+            t={t}
           />
         ))}
         {isEditMode && (
           <tr className="array-el add-row">
             <td className="index add-cell" colSpan={headers.length}>
               <button className="add-row-btn" onClick={() => onAddItem?.(path, null)}>
-                + 要素を追加
+                {t('table.addElement')}
               </button>
             </td>
           </tr>

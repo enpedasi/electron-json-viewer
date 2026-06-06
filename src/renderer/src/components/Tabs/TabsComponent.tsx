@@ -1,6 +1,7 @@
 import React from 'react'
 import './TabsComponent.css'
 import { getFileNameFromPath } from '../Cell/FileUtils'
+import { Language, Translator } from '../../i18n'
 
 interface TabInfo {
   id: string
@@ -20,6 +21,9 @@ interface TabsProps {
   onSave?: () => void
   activeTabMode?: string
   activeTabViewMode?: string
+  language: Language
+  onLanguageChange: (language: Language) => void
+  t: Translator
 }
 
 const TabsComponent: React.FC<TabsProps> = ({
@@ -32,11 +36,18 @@ const TabsComponent: React.FC<TabsProps> = ({
   onToggleViewMode,
   onSave,
   activeTabMode = 'view',
-  activeTabViewMode = 'grid'
+  activeTabViewMode = 'grid',
+  language,
+  onLanguageChange,
+  t
 }) => {
   const isEditMode = activeTabMode === 'edit'
   const getTabDisplayName = (tab: TabInfo) =>
-    tab.filePath ? getFileNameFromPath(tab.filePath) : getFileNameFromPath(tab.fileName)
+    tab.filePath
+      ? getFileNameFromPath(tab.filePath)
+      : tab.fileName === 'Untitled'
+        ? t('tabs.untitled')
+        : getFileNameFromPath(tab.fileName)
 
   return (
     <div className="tabs-container">
@@ -46,7 +57,7 @@ const TabsComponent: React.FC<TabsProps> = ({
             key={tab.id}
             className={`tab-item ${tab.id === activeTabId ? 'active' : ''}`}
             onClick={() => onSelectTab(tab.id)}
-            title={tab.filePath || 'Untitled'}
+            title={tab.filePath || t('tabs.untitled')}
           >
             <span className="tab-name">
               {tab.isDirty && <span className="dirty-marker">*</span>}
@@ -59,14 +70,14 @@ const TabsComponent: React.FC<TabsProps> = ({
                   e.stopPropagation()
                   onCloseTab(tab.id)
                 }}
-                aria-label={`Close tab ${getTabDisplayName(tab)}`}
+                aria-label={t('tabs.closeTab', { name: getTabDisplayName(tab) })}
               >
                 ×
               </button>
             )}
           </li>
         ))}
-        <li className="add-tab-item" onClick={onAddTab} title="New Tab">
+        <li className="add-tab-item" onClick={onAddTab} title={t('tabs.newTab')}>
           <button className="add-tab-btn">+</button>
         </li>
       </ul>
@@ -74,24 +85,40 @@ const TabsComponent: React.FC<TabsProps> = ({
         <button
           className="tab-mode-btn save-btn"
           onClick={onSave}
-          title="保存"
+          title={t('tabs.save')}
         >
-          💾 保存
+          💾 {t('tabs.save')}
         </button>
         <button
           className={`tab-mode-btn ${isEditMode ? 'active' : ''}`}
           onClick={onToggleEditMode}
-          title={isEditMode ? '閲覧モードに切替' : '編集モードに切替'}
+          title={isEditMode ? t('tabs.switchToView') : t('tabs.switchToEdit')}
         >
-          {isEditMode ? '✏️ 編集' : '👁 閲覧'}
+          {isEditMode ? `✏️ ${t('tabs.edit')}` : `👁 ${t('tabs.view')}`}
         </button>
         <button
           className={`tab-mode-btn ${activeTabViewMode === 'text' ? 'active' : ''}`}
           onClick={onToggleViewMode}
-          title={activeTabViewMode === 'grid' ? 'テキスト表示' : 'グリッド表示'}
+          title={activeTabViewMode === 'grid' ? t('tabs.showText') : t('tabs.showGrid')}
         >
-          {activeTabViewMode === 'grid' ? '{ } テキスト' : '⚏ グリッド'}
+          {activeTabViewMode === 'grid' ? `{ } ${t('tabs.text')}` : `⚏ ${t('tabs.grid')}`}
         </button>
+        <div className="language-switcher" title={t('tabs.language')} aria-label={t('tabs.language')}>
+          <button
+            className={`tab-mode-btn ${language === 'en' ? 'active' : ''}`}
+            onClick={() => onLanguageChange('en')}
+            title={t('tabs.english')}
+          >
+            EN
+          </button>
+          <button
+            className={`tab-mode-btn ${language === 'ja' ? 'active' : ''}`}
+            onClick={() => onLanguageChange('ja')}
+            title={t('tabs.japanese')}
+          >
+            日本語
+          </button>
+        </div>
       </div>
     </div>
   )

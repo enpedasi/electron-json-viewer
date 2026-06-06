@@ -11,6 +11,7 @@ import {
   collectArrayLeafColumns,
   applyColumnProjectionsToData
 } from '../Cell/columnProjection'
+import { Translator } from '../../i18n'
 
 interface JsonViewProps {
   tabData: TabState
@@ -50,6 +51,7 @@ interface JsonViewProps {
   onPasteTab?: () => void
   onSaveSelectionOptions?: () => void
   hasActiveSelection?: boolean
+  t: Translator
 }
 
 const JsonViewComponent: React.FC<JsonViewProps> = ({
@@ -89,7 +91,8 @@ const JsonViewComponent: React.FC<JsonViewProps> = ({
   onClearColumnProjection,
   onPasteTab,
   onSaveSelectionOptions,
-  hasActiveSelection
+  hasActiveSelection,
+  t
 }) => {
   const searchInputRef = useRef<HTMLInputElement>(null)
   const jsonViewerContainerRef = useRef<HTMLDivElement>(null)
@@ -199,14 +202,14 @@ const JsonViewComponent: React.FC<JsonViewProps> = ({
                     onSearchKeyDown(e)
                     if (e.key === 'Escape') handleCloseSearch()
                   }}
-                  placeholder="検索 (Enterで実行/次へ)"
+                  placeholder={t('json.searchPlaceholder')}
                   disabled={!tabData.jsonData || tabData.jsonData.error}
                 />
                 {tabData.searchQuery && (
                   <button
                     className="clear-search"
                     onClick={onClearSearch}
-                    aria-label="Clear search"
+                    aria-label={t('json.clearSearch')}
                   ></button>
                 )}
               </div>
@@ -215,7 +218,7 @@ const JsonViewComponent: React.FC<JsonViewProps> = ({
                 onClick={onSearchExecute}
                 disabled={!tabData.searchQuery || !tabData.jsonData || tabData.jsonData.error}
               >
-                検索
+                {t('json.search')}
               </button>
               <button
                 className="search-nav-btn"
@@ -231,7 +234,7 @@ const JsonViewComponent: React.FC<JsonViewProps> = ({
                   ? `${tabData.currentResultIndex + 1}/${tabData.searchResults.length}`
                   : ''}
               </button>
-              <button className="search-close-btn" onClick={handleCloseSearch} title="閉じる (Esc)">
+              <button className="search-close-btn" onClick={handleCloseSearch} title={t('json.close')}>
                 <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
                   <path d="M6 4.6L1.7.3.3 1.7 4.6 6 .3 10.3l1.4 1.4L6 7.4l4.3 4.3 1.4-1.4L7.4 6l4.3-4.3L10.3.3z" />
                 </svg>
@@ -242,25 +245,30 @@ const JsonViewComponent: React.FC<JsonViewProps> = ({
 
         {hasGridData && (
           <div className="edit-actions-overlay">
-            <button className="floating-btn" onClick={onExpandAll} title="全て展開">
-              全て展開
+            <button className="floating-btn" onClick={onExpandAll} title={t('json.expandAll')}>
+              {t('json.expandAll')}
             </button>
             <button
               className={`floating-btn ${tabData.keyFilterMode ? 'active' : ''}`}
               onClick={onToggleKeyFilterMode}
-              title="キー絞込モード"
+              title={t('json.keyFilterMode')}
             >
-              キー絞込{hasAnyActiveKeyFilter(tabData.keyFilters) ? ' *' : ''}
+              {t('json.keyFilter')}{hasAnyActiveKeyFilter(tabData.keyFilters) ? ' *' : ''}
             </button>
             <button
               className={`floating-btn ${tabData.columnProjectionMode ? 'active' : ''}`}
               onClick={onToggleColumnProjectionMode}
-              title="配列のネストした値を列として選択"
+              title={t('json.columnProjectionMode')}
             >
-              列選択{hasAnyActiveColumnProjection(tabData.columnProjections) ? ' *' : ''}
+              {t('json.columnProjection')}{hasAnyActiveColumnProjection(tabData.columnProjections) ? ' *' : ''}
             </button>
             <span className="floating-separator" />
-            <CopyFilterButton jsonData={tabData.jsonData} keyFilters={tabData.keyFilters} columnProjections={tabData.columnProjections} />
+            <CopyFilterButton
+              jsonData={tabData.jsonData}
+              keyFilters={tabData.keyFilters}
+              columnProjections={tabData.columnProjections}
+              t={t}
+            />
             {isEditMode && <span className="floating-separator" />}
             {isEditMode && (
               <>
@@ -268,7 +276,7 @@ const JsonViewComponent: React.FC<JsonViewProps> = ({
                   className="floating-btn"
                   onClick={onUndo}
                   disabled={tabData.history.undo.length === 0}
-                  title="元に戻す (Ctrl+Z)"
+                  title={t('json.undo')}
                 >
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                     <path d="M3.5 2v4.5H8l-1.6-1.6A3.5 3.5 0 0 1 12 8.5 3.5 3.5 0 0 1 6.4 10l-1.1 1.1A5 5 0 1 0 7.6 4.1L10 2H3.5z" />
@@ -278,7 +286,7 @@ const JsonViewComponent: React.FC<JsonViewProps> = ({
                   className="floating-btn"
                   onClick={onRedo}
                   disabled={tabData.history.redo.length === 0}
-                  title="やり直し (Ctrl+Shift+Z)"
+                  title={t('json.redo')}
                 >
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                     <path d="M12.5 2v4.5H8l1.6-1.6A3.5 3.5 0 0 0 4 8.5a3.5 3.5 0 0 0 5.6 1.5l1.1 1.1A5 5 0 1 1 8.4 4.1L6 2h6.5z" />
@@ -289,7 +297,7 @@ const JsonViewComponent: React.FC<JsonViewProps> = ({
                   className="floating-btn save-btn"
                   onClick={onSave}
                   disabled={!tabData.isDirty}
-                  title="保存 (Ctrl+S)"
+                  title={t('json.save')}
                 >
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                     <path d="M13.5 1h-12A1.5 1.5 0 0 0 0 2.5v11A1.5 1.5 0 0 0 1.5 15h12a1.5 1.5 0 0 0 1.5-1.5V5l-4-4zM5 2h4v3H5V2zm6 12H5v-4h6v4zm2-.5a.5.5 0 0 1-.5.5H12V9H4v5H2.5a.5.5 0 0 1-.5-.5v-11a.5.5 0 0 1 .5-.5H4v4h6V2.5l3 3V13.5z" />
@@ -306,7 +314,7 @@ const JsonViewComponent: React.FC<JsonViewProps> = ({
             tabData.jsonData !== null &&
             'error' in tabData.jsonData ? (
               <div className="center-panel error-panel">
-                <p>エラー:</p>
+                <p>{t('json.error')}</p>
                 <pre>
                   {typeof tabData.jsonData.error === 'string'
                     ? tabData.jsonData.error
@@ -314,18 +322,18 @@ const JsonViewComponent: React.FC<JsonViewProps> = ({
                 </pre>
               </div>
             ) : (
-              <TextEditor tabData={tabData} onChange={onTextEditorChange || (() => {})} />
+              <TextEditor tabData={tabData} onChange={onTextEditorChange || (() => {})} t={t} />
             )
           ) : (
             <div className="center-panel">
-              <p>JSON/YAMLファイルをドラッグ&ドロップしてください</p>
+              <p>{t('json.dropFile')}</p>
               <p className="center-panel-sub">
-                <span>または、クリップボードからペースト</span>
+                <span>{t('json.pasteIntro')}</span>
                 <button
                   className="paste-zone-btn"
                   onClick={onPasteTab}
-                  title="クリップボードからペースト (Ctrl+V)"
-                  aria-label="クリップボードからペースト"
+                  title={t('json.pasteShortcut')}
+                  aria-label={t('json.paste')}
                 >
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                     <path d="M4 2a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v1h1a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h1V2zm2-1a1 1 0 0 0-1 1v1h6V2a1 1 0 0 0-1-1H6zM3 4a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V5a1 1 0 0 0-1-1H3z" />
@@ -339,7 +347,7 @@ const JsonViewComponent: React.FC<JsonViewProps> = ({
           tabData.jsonData !== null &&
           'error' in tabData.jsonData ? (
             <div className="center-panel error-panel">
-              <p>エラー:</p>
+              <p>{t('json.error')}</p>
               <pre>
                 {typeof tabData.jsonData.error === 'string'
                   ? tabData.jsonData.error
@@ -378,23 +386,24 @@ const JsonViewComponent: React.FC<JsonViewProps> = ({
                 onClearColumnProjection={onClearColumnProjection}
                 onSaveSelectionOptions={onSaveSelectionOptions}
                 hasActiveSelection={hasActiveSelection}
+                t={t}
               />
             </div>
           )
         ) : tabData.filePath ? (
           <div className="center-panel">
-            <p>{tabData.fileName} を読み込み中...</p>
+            <p>{t('json.loading', { name: tabData.fileName })}</p>
           </div>
         ) : (
           <div className="center-panel">
-            <p>JSON/YAMLファイルをドラッグ&ドロップしてください</p>
+            <p>{t('json.dropFile')}</p>
             <p className="center-panel-sub">
-              <span>または、クリップボードからペースト</span>
+              <span>{t('json.pasteIntro')}</span>
               <button
                 className="paste-zone-btn"
                 onClick={onPasteTab}
-                title="クリップボードからペースト (Ctrl+V)"
-                aria-label="クリップボードからペースト"
+                title={t('json.pasteShortcut')}
+                aria-label={t('json.paste')}
               >
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                   <path d="M4 2a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v1h1a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h1V2zm2-1a1 1 0 0 0-1 1v1h6V2a1 1 0 0 0-1-1H6zM3 4a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V5a1 1 0 0 0-1-1H3z" />
@@ -411,11 +420,13 @@ const JsonViewComponent: React.FC<JsonViewProps> = ({
 function CopyFilterButton({
   jsonData,
   keyFilters,
-  columnProjections
+  columnProjections,
+  t
 }: {
   jsonData: unknown
   keyFilters: import('../Cell/keyFilter').KeyFilterState
   columnProjections: ColumnProjectionState
+  t: Translator
 }) {
   const [copied, setCopied] = useState(false)
   const hasFilters = hasAnyActiveKeyFilter(keyFilters)
@@ -437,8 +448,8 @@ function CopyFilterButton({
       className={`floating-btn ${copied ? 'active' : ''}`}
       onClick={handleClick}
       disabled={!hasAny}
-      title={copied ? 'コピーしました' : 'フィルター/列選択適用後のデータをコピー'}
-      aria-label="フィルター/列選択適用後のデータをコピー"
+      title={copied ? t('json.copied') : t('json.copyFiltered')}
+      aria-label={t('json.copyFiltered')}
     >
       <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
         <path d="M4 2a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v1h1a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h1V2zm2-1a1 1 0 0 0-1 1v1h6V2a1 1 0 0 0-1-1H6zM3 4a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V5a1 1 0 0 0-1-1H3z" />

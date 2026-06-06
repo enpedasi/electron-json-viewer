@@ -1046,3 +1046,65 @@ th.filtered-column {
 th.projected-column {
   background: rgba(14, 99, 156, 0.22);
 }
+
+.panel-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.panel-header-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid #3c3c3c;
+  border-radius: 3px;
+  background: #333;
+  color: var(--vscode-editor-foreground);
+  cursor: pointer;
+  padding: 0;
+}
+
+.panel-header-icon-btn:hover:not(:disabled) {
+  background: #505050;
+}
+
+.panel-header-icon-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.array-table-header-row {
+  display: inline-flex;
+  margin-bottom: 2px;
+}
+
+.tsv-copy-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid #3c3c3c;
+  border-radius: 3px;
+  background: #333;
+  color: var(--vscode-editor-foreground);
+  cursor: pointer;
+  padding: 0;
+}
+
+.tsv-copy-btn:hover:not(:disabled) {
+  background: #505050;
+}
+
+.tsv-copy-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.tsv-copy-btn.copied {
+  background: #094771;
+  border-color: #007acc;
+}

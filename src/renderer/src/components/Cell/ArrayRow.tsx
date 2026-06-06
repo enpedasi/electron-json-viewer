@@ -2,6 +2,7 @@ import React from 'react'
 import Cell from './Cell'
 import { KeyFilterState } from './keyFilter'
 import { ColumnProjectionState, ProjectionColumn, getValueByRelativePath } from './columnProjection'
+import { Translator } from '../../i18n'
 
 interface DataColumn {
   header: string
@@ -40,6 +41,9 @@ interface ArrayRowProps {
   onApplyColumnProjection?: (path: string, allColumns: ProjectionColumn[]) => void
   onCancelColumnProjectionSelection?: (path: string) => void
   onClearColumnProjection?: (path: string) => void
+  onSaveSelectionOptions?: () => void
+  hasActiveSelection?: boolean
+  t: Translator
 }
 
 const ArrayRow: React.FC<ArrayRowProps> = ({
@@ -73,7 +77,10 @@ const ArrayRow: React.FC<ArrayRowProps> = ({
   onDraftColumnProjectionQueryChange,
   onApplyColumnProjection,
   onCancelColumnProjectionSelection,
-  onClearColumnProjection
+  onClearColumnProjection,
+  onSaveSelectionOptions,
+  hasActiveSelection = false,
+  t
 }) => {
   const typeOfEl = Array.isArray(element) ? 'array' : element === null ? 'null' : typeof element
 
@@ -114,6 +121,9 @@ const ArrayRow: React.FC<ArrayRowProps> = ({
                 onApplyColumnProjection={onApplyColumnProjection}
                 onCancelColumnProjectionSelection={onCancelColumnProjectionSelection}
                 onClearColumnProjection={onClearColumnProjection}
+                onSaveSelectionOptions={onSaveSelectionOptions}
+                hasActiveSelection={hasActiveSelection}
+                t={t}
               />
             </td>
           )
@@ -141,6 +151,9 @@ const ArrayRow: React.FC<ArrayRowProps> = ({
             onApplyColumnProjection={onApplyColumnProjection}
             onCancelColumnProjectionSelection={onCancelColumnProjectionSelection}
             onClearColumnProjection={onClearColumnProjection}
+            onSaveSelectionOptions={onSaveSelectionOptions}
+            hasActiveSelection={hasActiveSelection}
+            t={t}
           />
         </td>
       )}
@@ -152,7 +165,7 @@ const ArrayRow: React.FC<ArrayRowProps> = ({
               e.stopPropagation()
               onDelete?.(path)
             }}
-            title="削除"
+            title={t('table.delete')}
           >
             ✕
           </button>

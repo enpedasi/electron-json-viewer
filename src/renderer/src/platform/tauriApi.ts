@@ -31,6 +31,19 @@ export const tauriApi: DesktopApi = {
     return { canceled: false, filePath: targetPath }
   },
 
+  async saveTextFile(opts) {
+    const selected = await save({
+      defaultPath: opts.defaultPath,
+      filters: [
+        { name: 'Option Files', extensions: ['option'] },
+        { name: 'All Files', extensions: ['*'] }
+      ]
+    })
+    if (!selected) return { canceled: true }
+    await writeTextFile(selected, opts.content)
+    return { canceled: false, filePath: selected }
+  },
+
   async showUnsavedDialog(opts) {
     const response: number = await invoke('show_unsaved_dialog', {
       fileName: opts.fileName

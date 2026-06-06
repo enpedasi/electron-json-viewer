@@ -180,3 +180,71 @@
     border-color: #007acc;
     color: var(--ev-c-text-1);
 }
+
+.tab-menu {
+    position: relative;
+}
+
+.tab-menu-btn {
+    width: 30px;
+    height: 24px;
+    border: 1px solid var(--ev-c-gray-2);
+    border-radius: 3px;
+    background: var(--ev-c-gray-3);
+    color: var(--ev-c-text-2);
+    cursor: pointer;
+    font-size: 15px;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.tab-menu-btn:hover,
+.tab-menu-btn.active {
+    background: var(--ev-c-gray-2);
+    color: var(--ev-c-text-1);
+}
+
+.tab-menu-popover {
+    position: absolute;
+    top: calc(100% + 5px);
+    right: 0;
+    min-width: 132px;
+    padding: 6px;
+    border: 1px solid var(--ev-c-gray-2);
+    border-radius: 4px;
+    background: var(--ev-c-black-mute);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+    z-index: 20;
+}
+
+.tab-menu-label {
+    padding: 4px 8px 6px;
+    color: var(--ev-c-text-2);
+    font-size: 11px;
+    border-bottom: 1px solid var(--ev-c-gray-2);
+    margin-bottom: 4px;
+}
+
+.tab-menu-item {
+    width: 100%;
+    padding: 6px 8px;
+    border: none;
+    border-radius: 3px;
+    background: transparent;
+    color: var(--ev-c-text-2);
+    cursor: pointer;
+    text-align: left;
+    font-size: 12px;
+}
+
+.tab-menu-item:hover {
+    background: var(--ev-c-gray-2);
+    color: var(--ev-c-text-1);
+}
+
+.tab-menu-item.active {
+    background: #094771;
+    color: var(--ev-c-text-1);
+}

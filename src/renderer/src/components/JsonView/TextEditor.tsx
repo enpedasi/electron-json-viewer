@@ -1,13 +1,15 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { TabState } from '../../App'
 import { serializeData, validateText } from '../Cell/FileUtils'
+import { Translator } from '../../i18n'
 
 interface TextEditorProps {
   tabData: TabState
   onChange: (newText: string) => void
+  t: Translator
 }
 
-const TextEditor: React.FC<TextEditorProps> = ({ tabData, onChange }) => {
+const TextEditor: React.FC<TextEditorProps> = ({ tabData, onChange, t }) => {
   const [text, setText] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [lineCount, setLineCount] = useState(1)
@@ -77,11 +79,11 @@ const TextEditor: React.FC<TextEditorProps> = ({ tabData, onChange }) => {
     <div className="text-editor-container">
       <div className="text-editor-toolbar">
         <button className="text-editor-btn" onClick={handleFormat}>
-          フォーマット
+          {t('text.format')}
         </button>
         {tabData.fileType === 'json' && (
           <button className="text-editor-btn" onClick={handleMinify}>
-            最小化
+            {t('text.minify')}
           </button>
         )}
       </div>
@@ -105,7 +107,7 @@ const TextEditor: React.FC<TextEditorProps> = ({ tabData, onChange }) => {
       {error && (
         <div className="text-editor-error">
           <span>
-            {label}パースエラー: {error}
+            {t('text.parseError', { type: label, message: error })}
           </span>
         </div>
       )}

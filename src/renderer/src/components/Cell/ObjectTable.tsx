@@ -3,6 +3,7 @@ import ResizableTable from './ResizableTable'
 import Cell from './Cell'
 import { KeyFilterState } from './keyFilter'
 import { ColumnProjectionState, ProjectionColumn } from './columnProjection'
+import { Translator } from '../../i18n'
 
 interface ObjectTableProps {
   member: Record<string, any>
@@ -35,6 +36,9 @@ interface ObjectTableProps {
   onApplyColumnProjection?: (path: string, allColumns: ProjectionColumn[]) => void
   onCancelColumnProjectionSelection?: (path: string) => void
   onClearColumnProjection?: (path: string) => void
+  onSaveSelectionOptions?: () => void
+  hasActiveSelection?: boolean
+  t: Translator
 }
 
 interface Header {
@@ -72,18 +76,21 @@ const ObjectTable: React.FC<ObjectTableProps> = ({
   onDraftColumnProjectionQueryChange,
   onApplyColumnProjection,
   onCancelColumnProjectionSelection,
-  onClearColumnProjection
+  onClearColumnProjection,
+  onSaveSelectionOptions,
+  hasActiveSelection = false,
+  t
 }) => {
   const headers: Header[] = useMemo(() => {
     const base = [
-      { header: 'key', thClass: 'object key' },
-      { header: 'val', thClass: 'object value' }
+      { header: t('object.key'), thClass: 'object key' },
+      { header: t('object.val'), thClass: 'object value' }
     ]
     if (isEditMode) {
       return [...base, { header: '', thClass: 'edit-actions' }]
     }
     return base
-  }, [isEditMode])
+  }, [isEditMode, t])
 
   const highlightText = (text: string, query: string) => {
     if (!query) return text
@@ -197,6 +204,9 @@ const ObjectTable: React.FC<ObjectTableProps> = ({
               onApplyColumnProjection={onApplyColumnProjection}
               onCancelColumnProjectionSelection={onCancelColumnProjectionSelection}
               onClearColumnProjection={onClearColumnProjection}
+              onSaveSelectionOptions={onSaveSelectionOptions}
+              hasActiveSelection={hasActiveSelection}
+              t={t}
             />
           </td>
           {isEditMode && (
@@ -207,7 +217,7 @@ const ObjectTable: React.FC<ObjectTableProps> = ({
                   e.stopPropagation()
                   onDelete?.(`${path}.${key}`)
                 }}
-                title="削除"
+                title={t('table.delete')}
               >
                 ✕
               </button>
@@ -225,7 +235,7 @@ const ObjectTable: React.FC<ObjectTableProps> = ({
                   type="text"
                   value={newKeyName}
                   onChange={(e) => setNewKeyName(e.target.value)}
-                  placeholder="新しいキー名"
+                  placeholder={t('object.newKey')}
                   onKeyDown={(e) => {
                     if (e.nativeEvent.isComposing) return
                     if (e.key === 'Enter') handleAddProperty()
@@ -234,15 +244,15 @@ const ObjectTable: React.FC<ObjectTableProps> = ({
                   autoFocus
                 />
                 <button className="add-confirm-btn" onClick={handleAddProperty}>
-                  追加
+                  {t('object.add')}
                 </button>
                 <button className="add-cancel-btn" onClick={() => setAddingNew(false)}>
-                  取消
+                  {t('table.cancel')}
                 </button>
               </div>
             ) : (
               <button className="add-row-btn" onClick={() => setAddingNew(true)}>
-                + プロパティを追加
+                {t('object.addProperty')}
               </button>
             )}
           </td>

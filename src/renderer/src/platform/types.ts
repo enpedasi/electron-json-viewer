@@ -6,6 +6,10 @@ export interface DesktopApi {
     defaultPath?: string
     content: string
   }): Promise<{ canceled: boolean; filePath?: string }>
+  saveTextFile(opts: {
+    defaultPath: string
+    content: string
+  }): Promise<{ canceled: boolean; filePath?: string }>
   showUnsavedDialog(opts: { fileName: string }): Promise<{ response: number }>
   setWindowTitle(filePath: string | null): void
   handleFilesOpen(callback: (event: unknown, filePaths: string[]) => void): (() => void) | undefined

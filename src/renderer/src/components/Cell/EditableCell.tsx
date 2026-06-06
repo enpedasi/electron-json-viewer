@@ -1,10 +1,12 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { coerceValue } from './CellUtils'
+import { Translator } from '../../i18n'
 
 interface EditableCellProps {
   value: any
   path: string
   onCommit: (path: string, newValue: any) => void
+  t: Translator
 }
 
 const LINE_HEIGHT = 20
@@ -15,7 +17,7 @@ const needsTextarea = (v: any, measuredHeight: number | undefined) => {
   return false
 }
 
-const EditableCell: React.FC<EditableCellProps> = ({ value, path, onCommit }) => {
+const EditableCell: React.FC<EditableCellProps> = ({ value, path, onCommit, t }) => {
   const [editing, setEditing] = useState(false)
   const [inputValue, setInputValue] = useState('')
   const [measuredSize, setMeasuredSize] = useState<{ width: number; height: number } | null>(null)
@@ -106,7 +108,7 @@ const EditableCell: React.FC<EditableCellProps> = ({ value, path, onCommit }) =>
           e.stopPropagation()
           onCommit(path, !value)
         }}
-        title="クリックで切替"
+        title={t('cell.clickToToggle')}
       >
         {String(value)}
       </span>
@@ -122,7 +124,7 @@ const EditableCell: React.FC<EditableCellProps> = ({ value, path, onCommit }) =>
           onDoubleClick={startEditing}
           onKeyDown={startEditing}
           tabIndex={0}
-          title="ダブルクリックで編集"
+          title={t('cell.doubleClickToEdit')}
         />
       )
     }
@@ -137,7 +139,7 @@ const EditableCell: React.FC<EditableCellProps> = ({ value, path, onCommit }) =>
         onDoubleClick={startEditing}
         onKeyDown={startEditing}
         tabIndex={0}
-        title="ダブルクリックで編集"
+        title={t('cell.doubleClickToEdit')}
       >
         {String(value)}
       </span>

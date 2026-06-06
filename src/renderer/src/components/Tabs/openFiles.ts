@@ -23,6 +23,10 @@ interface PlanOpenedFilesOptions<Tab extends FileOpenTab> {
   prepareTabForFile: (tab: Tab, filePath: string) => Tab
 }
 
+export function isOptionFilePath(filePath: string): boolean {
+  return filePath.endsWith('.option')
+}
+
 export function planOpenedFiles<Tab extends FileOpenTab>({
   tabs,
   filePaths,

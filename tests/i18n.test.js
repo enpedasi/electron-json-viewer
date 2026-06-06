@@ -70,6 +70,8 @@ assert.deepStrictEqual(Object.keys(messages.en).sort(), Object.keys(messages.ja)
 console.log('Test: translators return localized strings')
 assert.strictEqual(createTranslator('en')('tabs.save'), 'Save')
 assert.strictEqual(createTranslator('ja')('tabs.save'), '保存')
+assert.strictEqual(createTranslator('en')('tabs.menu'), 'Menu')
+assert.strictEqual(createTranslator('ja')('tabs.menu'), 'メニュー')
 
 console.log('Test: translators interpolate values')
 assert.strictEqual(createTranslator('en')('tabs.closeTab', { name: 'sample.json' }), 'Close tab sample.json')

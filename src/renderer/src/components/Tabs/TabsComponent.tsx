@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import './TabsComponent.css'
 import { getFileNameFromPath } from '../Cell/FileUtils'
 import { Language, Translator } from '../../i18n'
@@ -42,12 +42,32 @@ const TabsComponent: React.FC<TabsProps> = ({
   t
 }) => {
   const isEditMode = activeTabMode === 'edit'
+  const [menuOpen, setMenuOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
   const getTabDisplayName = (tab: TabInfo) =>
     tab.filePath
       ? getFileNameFromPath(tab.filePath)
       : tab.fileName === 'Untitled'
         ? t('tabs.untitled')
         : getFileNameFromPath(tab.fileName)
+
+  useEffect(() => {
+    if (!menuOpen) return
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!menuRef.current?.contains(event.target as Node)) {
+        setMenuOpen(false)
+      }
+    }
+
+    document.addEventListener('pointerdown', handlePointerDown)
+    return () => document.removeEventListener('pointerdown', handlePointerDown)
+  }, [menuOpen])
+
+  const handleLanguageSelect = (nextLanguage: Language) => {
+    onLanguageChange(nextLanguage)
+    setMenuOpen(false)
+  }
 
   return (
     <div className="tabs-container">
@@ -103,21 +123,38 @@ const TabsComponent: React.FC<TabsProps> = ({
         >
           {activeTabViewMode === 'grid' ? `{ } ${t('tabs.text')}` : `⚏ ${t('tabs.grid')}`}
         </button>
-        <div className="language-switcher" title={t('tabs.language')} aria-label={t('tabs.language')}>
+        <div className="tab-menu" ref={menuRef}>
           <button
-            className={`tab-mode-btn ${language === 'en' ? 'active' : ''}`}
-            onClick={() => onLanguageChange('en')}
-            title={t('tabs.english')}
+            className={`tab-menu-btn ${menuOpen ? 'active' : ''}`}
+            onClick={() => setMenuOpen((open) => !open)}
+            title={t('tabs.menu')}
+            aria-label={t('tabs.menu')}
+            aria-expanded={menuOpen}
+            aria-haspopup="menu"
           >
-            EN
+            ☰
           </button>
-          <button
-            className={`tab-mode-btn ${language === 'ja' ? 'active' : ''}`}
-            onClick={() => onLanguageChange('ja')}
-            title={t('tabs.japanese')}
-          >
-            日本語
-          </button>
+          {menuOpen && (
+            <div className="tab-menu-popover" role="menu">
+              <div className="tab-menu-label">{t('tabs.language')}</div>
+              <button
+                className={`tab-menu-item ${language === 'en' ? 'active' : ''}`}
+                onClick={() => handleLanguageSelect('en')}
+                role="menuitemradio"
+                aria-checked={language === 'en'}
+              >
+                EN
+              </button>
+              <button
+                className={`tab-menu-item ${language === 'ja' ? 'active' : ''}`}
+                onClick={() => handleLanguageSelect('ja')}
+                role="menuitemradio"
+                aria-checked={language === 'ja'}
+              >
+                日本語
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

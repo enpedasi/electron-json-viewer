@@ -94,9 +94,14 @@ const ArrayTable: React.FC<Props> = ({
     [allKeys, filterState?.appliedKeys]
   )
 
-  const projectionColumns = React.useMemo(() => collectArrayLeafColumns(array), [array])
   const projectionState = columnProjections[path]
   const activeProjection = hasActiveColumnProjection(columnProjections, path)
+  const needsProjectionColumns =
+    columnProjectionMode || activeProjection || (projectionState?.isSelecting ?? false)
+  const projectionColumns = React.useMemo(
+    () => (needsProjectionColumns ? collectArrayLeafColumns(array) : []),
+    [array, needsProjectionColumns]
+  )
   const appliedProjectionColumns = getAppliedProjectionColumns(columnProjections, path)
 
   const dataColumns = React.useMemo(() => {

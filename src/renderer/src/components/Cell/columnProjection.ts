@@ -19,9 +19,10 @@ export function createEmptyColumnProjectionState(): ColumnProjectionState {
 
 export function collectArrayLeafColumns(array: unknown[], maxDepth = 6): ProjectionColumn[] {
   const columns: ProjectionColumn[] = []
+  const seenPaths = new Set<string>()
   for (const item of array) {
     if (!isObjectRecord(item)) continue
-    collectLeafColumnsFromValue(item, [], columns, maxDepth)
+    collectLeafColumnsFromValue(item, [], columns, seenPaths, maxDepth)
   }
   return columns
 }
@@ -30,12 +31,14 @@ function collectLeafColumnsFromValue(
   value: unknown,
   segments: string[],
   columns: ProjectionColumn[],
+  seenPaths: Set<string>,
   maxDepth: number
 ) {
   if (segments.length > maxDepth) return
   if (isLeafValue(value)) {
     const path = segments.join('.')
-    if (!path || columns.some((column) => column.path === path)) return
+    if (!path || seenPaths.has(path)) return
+    seenPaths.add(path)
     columns.push({
       path,
       label: segments[segments.length - 1],
@@ -45,7 +48,9 @@ function collectLeafColumnsFromValue(
   }
   if (!isObjectRecord(value)) return
   for (const [key, child] of Object.entries(value)) {
-    collectLeafColumnsFromValue(child, [...segments, key], columns, maxDepth)
+    segments.push(key)
+    collectLeafColumnsFromValue(child, segments, columns, seenPaths, maxDepth)
+    segments.pop()
   }
 }
 
@@ -92,7 +97,7 @@ export function setDraftColumnSelected(
     draftQuery: ''
   }
   const draftColumnPaths = selected
-    ? [...current.draftColumnPaths, columnPath].filter((value, index, array) => array.indexOf(value) === index)
+    ? Array.from(new Set([...current.draftColumnPaths, columnPath]))
     : current.draftColumnPaths.filter((p) => p !== columnPath)
   return {
     ...state,
@@ -194,6 +199,7 @@ export function hasAnyActiveColumnProjection(state: ColumnProjectionState): bool
 }
 
 export function applyColumnProjectionsToData(data: unknown, state: ColumnProjectionState): unknown {
+  if (!hasAnyActiveColumnProjection(state)) return data
   return walkAndProject(data, '', state)
 }
 
@@ -279,7 +285,8 @@ export function normalizeColumns(
   allColumns: ProjectionColumn[],
   selectedPaths: string[]
 ): ProjectionColumn[] {
-  return allColumns.filter((column) => selectedPaths.includes(column.path))
+  const selectedPathSet = new Set(selectedPaths)
+  return allColumns.filter((column) => selectedPathSet.has(column.path))
 }
 
 function normalizeColumnPaths(allColumns: ProjectionColumn[], selectedPaths: string[]): string[] {

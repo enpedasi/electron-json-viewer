@@ -131,6 +131,9 @@ assert.strictEqual(isProjectedPathVisible(state, '.statuses[0].unitStatus.jobNum
 assert.strictEqual(isProjectedPathVisible(state, '.statuses[0].unitStatus.retCode'), false)
 assert.strictEqual(isProjectedPathVisible(state, '.metadata.count'), true)
 
+const unprojectedData = { rows: statuses }
+assert.strictEqual(applyColumnProjectionsToData(unprojectedData, {}), unprojectedData)
+
 const copiedColumns = [
   'unitStatus.srcExecID',
   'unitStatus.schStartTime',

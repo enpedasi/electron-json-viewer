@@ -13,10 +13,12 @@ export function createEmptyKeyFilterState(): KeyFilterState {
 
 export function collectObjectArrayKeys(array: unknown[]): string[] {
   const keys: string[] = []
+  const seen = new Set<string>()
   for (const item of array) {
     if (!isObjectRecord(item)) continue
     for (const key of Object.keys(item)) {
-      if (!keys.includes(key)) {
+      if (!seen.has(key)) {
+        seen.add(key)
         keys.push(key)
       }
     }
@@ -72,7 +74,7 @@ export function setDraftKeySelected(
     draftQuery: ''
   }
   const draftKeys = selected
-    ? [...current.draftKeys, key].filter((value, index, array) => array.indexOf(value) === index)
+    ? Array.from(new Set([...current.draftKeys, key]))
     : current.draftKeys.filter((draftKey) => draftKey !== key)
 
   return {
@@ -171,7 +173,8 @@ export function isObjectArrayKeyVisible(
 }
 
 export function normalizeKeySelection(allKeys: string[], selectedKeys: string[]): string[] {
-  return allKeys.filter((key) => selectedKeys.includes(key))
+  const selectedKeySet = new Set(selectedKeys)
+  return allKeys.filter((key) => selectedKeySet.has(key))
 }
 
 export function isObjectRecord(value: unknown): value is Record<string, unknown> {
@@ -179,6 +182,7 @@ export function isObjectRecord(value: unknown): value is Record<string, unknown>
 }
 
 export function applyKeyFiltersToData(data: unknown, keyFilters: KeyFilterState): unknown {
+  if (!hasAnyActiveKeyFilter(keyFilters)) return data
   return walkAndFilter(data, '', keyFilters)
 }
 

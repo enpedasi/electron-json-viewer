@@ -116,10 +116,12 @@ assert.deepStrictEqual(
 )
 
 // 3. No filter (pass through)
+const unfilteredRows = [{ a: 1, b: 2 }]
 assert.deepStrictEqual(
-  applyKeyFiltersToData([{ a: 1, b: 2 }], {}),
+  applyKeyFiltersToData(unfilteredRows, {}),
   [{ a: 1, b: 2 }]
 )
+assert.strictEqual(applyKeyFiltersToData(unfilteredRows, {}), unfilteredRows)
 
 // 4. Mixed array (objects and primitives)
 assert.deepStrictEqual(

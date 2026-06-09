@@ -12,6 +12,7 @@ interface ResizableTableProps {
   theadClass?: string
   trClass: string
   headerRenderer?: (header: string) => React.ReactNode
+  tbodyRef?: React.Ref<HTMLTableSectionElement>
   children: React.ReactNode
 }
 
@@ -21,6 +22,7 @@ const ResizableTable: React.FC<ResizableTableProps> = ({
   theadClass,
   trClass,
   headerRenderer,
+  tbodyRef,
   children
 }) => {
   const [tableHeight, setTableHeight] = useState('0px')
@@ -90,7 +92,7 @@ const ResizableTable: React.FC<ResizableTableProps> = ({
           </tr>
         </thead>
       )}
-      <tbody>{children}</tbody>
+      <tbody ref={tbodyRef}>{children}</tbody>
     </table>
   )
 }

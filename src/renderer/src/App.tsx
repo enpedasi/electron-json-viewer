@@ -337,7 +337,7 @@ function App() {
           filePath: filePath,
           fileName: fileName,
           fileType: fileType,
-          originalContent: serializeData(parsed, fileType),
+          originalContent: fileContent,
           expandedPaths: [],
           scrollTop: 0,
           keyFilterMode: false,

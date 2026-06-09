@@ -95,7 +95,17 @@ td.index.null::after {
 .value.string {
   color: var(--string-color);
   white-space: pre-wrap;
-  word-break: break-all;
+  word-break: normal;
+  overflow-wrap: break-word;
+}
+
+.value.string.compact-long-value {
+  display: inline-block;
+  max-width: 56ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: bottom;
+  white-space: nowrap;
 }
 
 .value.number {
@@ -157,6 +167,10 @@ tr.array-el:last-child td.value {
 th.object.key,
 td.object.element {
   border-top: 0;
+}
+
+td.object.element {
+  min-width: 36ch;
 }
 
 tr.object-hdr th {

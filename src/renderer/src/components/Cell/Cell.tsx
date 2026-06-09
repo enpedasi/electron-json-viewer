@@ -42,6 +42,15 @@ interface CellProps {
   t: Translator
 }
 
+const LONG_INLINE_VALUE_LENGTH = 24
+
+const shouldCompactStringValue = (value: string, query = '') => {
+  if (value.length < LONG_INLINE_VALUE_LENGTH) return false
+  if (/\s/.test(value)) return false
+  if (query && value.toLowerCase().includes(query.toLowerCase())) return false
+  return true
+}
+
 const Cell: React.FC<CellProps> = ({
   element,
   depth = 0,
@@ -223,11 +232,16 @@ const Cell: React.FC<CellProps> = ({
       currentResultIndex !== undefined &&
       searchResults[currentResultIndex]?.path === path
     const valueString = String(element)
+    const compactLongValue =
+      typeof element === 'string' && shouldCompactStringValue(valueString, searchQuery)
     return (
       <span
         ref={cellRef}
-        className={`value ${typeof element} ${isCurrentValueResult ? 'current-highlight' : ''}`}
+        className={`value ${typeof element} ${compactLongValue ? 'compact-long-value' : ''} ${
+          isCurrentValueResult ? 'current-highlight' : ''
+        }`}
         data-path={path}
+        title={compactLongValue ? valueString : undefined}
       >
         {highlightText(valueString, searchQuery || '')}
       </span>

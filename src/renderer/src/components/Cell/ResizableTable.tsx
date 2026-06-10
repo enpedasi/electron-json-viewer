@@ -30,9 +30,14 @@ const ResizableTable: React.FC<ResizableTableProps> = ({
   const tableRef = useRef<HTMLTableElement>(null)
 
   useEffect(() => {
-    const observer = new ResizeObserver((entries) =>
-      setTableHeight(entries[0].contentRect.height + 'px')
-    )
+    const observer = new ResizeObserver((entries) => {
+      const newHeight = Math.round(entries[0].contentRect.height)
+      setTableHeight((prev) => {
+        const prevNum = parseInt(prev, 10)
+        if (Math.abs(prevNum - newHeight) < 1) return prev
+        return newHeight + 'px'
+      })
+    })
     if (tableRef.current) observer.observe(tableRef.current)
     return () => observer.disconnect()
   }, [])

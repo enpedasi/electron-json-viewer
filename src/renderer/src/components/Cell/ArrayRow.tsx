@@ -4,6 +4,8 @@ import { KeyFilterState } from './keyFilter'
 import { ColumnProjectionState, ProjectionColumn, getValueByRelativePath } from './columnProjection'
 import { Translator } from '../../i18n'
 
+const EMPTY_PATH_SET: ReadonlySet<string> = new Set()
+
 interface DataColumn {
   header: string
   valuePath?: string
@@ -24,7 +26,8 @@ interface ArrayRowProps {
   onDataChange?: (path: string, newValue: any) => void
   onDelete?: (path: string) => void
   onExpandedChange?: (path: string, expanded: boolean) => void
-  expandedPaths?: string[]
+  expandedPaths?: ReadonlySet<string> | string[]
+  autoExpandPaths?: ReadonlySet<string>
   keyFilterMode?: boolean
   keyFilters?: KeyFilterState
   onBeginKeyFilterSelection?: (path: string, allKeys: string[]) => void
@@ -63,7 +66,8 @@ const ArrayRow = React.forwardRef<HTMLTableRowElement, ArrayRowProps>(
       onDataChange,
       onDelete,
       onExpandedChange,
-      expandedPaths = [],
+      expandedPaths = EMPTY_PATH_SET,
+      autoExpandPaths = EMPTY_PATH_SET,
       keyFilterMode = false,
       keyFilters = {},
       onBeginKeyFilterSelection,
@@ -109,6 +113,7 @@ const ArrayRow = React.forwardRef<HTMLTableRowElement, ArrayRowProps>(
                   onDelete={onDelete}
                   onExpandedChange={onExpandedChange}
                   expandedPaths={expandedPaths}
+                  autoExpandPaths={autoExpandPaths}
                   keyFilterMode={keyFilterMode}
                   keyFilters={keyFilters}
                   onBeginKeyFilterSelection={onBeginKeyFilterSelection}
@@ -147,6 +152,7 @@ const ArrayRow = React.forwardRef<HTMLTableRowElement, ArrayRowProps>(
               onDelete={onDelete}
               onExpandedChange={onExpandedChange}
               expandedPaths={expandedPaths}
+              autoExpandPaths={autoExpandPaths}
               columnProjectionMode={columnProjectionMode}
               columnProjections={columnProjections}
               onBeginColumnProjectionSelection={onBeginColumnProjectionSelection}
@@ -182,4 +188,4 @@ const ArrayRow = React.forwardRef<HTMLTableRowElement, ArrayRowProps>(
 
 ArrayRow.displayName = 'ArrayRow'
 
-export default ArrayRow
+export default React.memo(ArrayRow)

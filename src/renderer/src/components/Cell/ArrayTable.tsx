@@ -15,11 +15,15 @@ import {
   hasActiveColumnProjection
 } from './columnProjection'
 import { buildTsvFromColumns } from './tableTsv'
+import { highlightText, escapeRegExp } from './highlightText'
 import { Translator } from '../../i18n'
 
 const ESTIMATED_ROW_HEIGHT = 28
 const VIRTUAL_OVERSCAN_ROWS = 12
 const VIRTUAL_VIEWPORT_FALLBACK_HEIGHT = 800
+const MAX_MEASURED_ROWS = 2000
+const EMPTY_PATH_SET: ReadonlySet<string> = new Set()
+const MAX_VISIBLE_OPTIONS = 300
 
 interface Props {
   array: Array<any>
@@ -34,7 +38,8 @@ interface Props {
   onDelete?: (path: string) => void
   onAddItem?: (path: string, value: any) => void
   onExpandedChange?: (path: string, expanded: boolean) => void
-  expandedPaths?: string[]
+  expandedPaths?: ReadonlySet<string> | string[]
+  autoExpandPaths?: ReadonlySet<string>
   keyFilterMode?: boolean
   keyFilters?: KeyFilterState
   onBeginKeyFilterSelection?: (path: string, allKeys: string[]) => void
@@ -69,7 +74,8 @@ const ArrayTable: React.FC<Props> = ({
   onDelete,
   onAddItem,
   onExpandedChange,
-  expandedPaths = [],
+  expandedPaths = EMPTY_PATH_SET,
+  autoExpandPaths = EMPTY_PATH_SET,
   keyFilterMode = false,
   keyFilters = {},
   onBeginKeyFilterSelection,
@@ -94,15 +100,20 @@ const ArrayTable: React.FC<Props> = ({
   const tbodyRef = React.useRef<HTMLTableSectionElement>(null)
   const rowHeightsRef = React.useRef(new Map<number, number>())
   const rowObserversRef = React.useRef(new Map<number, ResizeObserver>())
+  const rowRefCallbacksRef = React.useRef(
+    new Map<number, (row: HTMLTableRowElement | null) => void>()
+  )
   const [measurementVersion, setMeasurementVersion] = React.useState(0)
   const [rowHeightEstimate, setRowHeightEstimate] = React.useState(ESTIMATED_ROW_HEIGHT)
   const [virtualViewport, setVirtualViewport] = React.useState({
     scrollOffset: 0,
     viewportHeight: VIRTUAL_VIEWPORT_FALLBACK_HEIGHT
   })
+  const virtualRangeRef = React.useRef({ startIndex: 0, endIndex: 0 })
 
   React.useEffect(() => {
     rowHeightsRef.current.clear()
+    rowRefCallbacksRef.current.clear()
     setMeasurementVersion((version) => version + 1)
   }, [array])
 
@@ -137,7 +148,7 @@ const ArrayTable: React.FC<Props> = ({
 
   React.useLayoutEffect(() => {
     updateVirtualViewport()
-  })
+  }, [array.length, updateVirtualViewport])
 
   React.useEffect(() => {
     const scrollParent = getScrollParent(tableWrapperRef.current)
@@ -165,38 +176,73 @@ const ArrayTable: React.FC<Props> = ({
     }
   }, [array.length, updateVirtualViewport])
 
-  const updateRowMeasurement = React.useCallback((index: number, height: number) => {
-    if (!Number.isFinite(height) || height <= 0) return
-    const measuredHeight = Math.ceil(height)
-    const previousHeight = rowHeightsRef.current.get(index)
-    if (previousHeight === measuredHeight) return
+  const updateRowMeasurement = React.useCallback(
+    (index: number, height: number) => {
+      if (!Number.isFinite(height) || height <= 0) return
+      const measuredHeight = Math.ceil(height)
+      const previousHeight = rowHeightsRef.current.get(index)
+      if (previousHeight === measuredHeight) return
 
-    rowHeightsRef.current.set(index, measuredHeight)
-    if (measuredHeight < 120) {
-      setRowHeightEstimate((current) =>
-        Math.abs(current - measuredHeight) < 1
-          ? current
-          : Math.round(current * 0.85 + measuredHeight * 0.15)
-      )
-    }
-    setMeasurementVersion((version) => version + 1)
-  }, [])
-
-  const setMeasuredRowRef = React.useCallback(
-    (index: number) => (row: HTMLTableRowElement | null) => {
-      const previousObserver = rowObserversRef.current.get(index)
-      if (previousObserver) {
-        previousObserver.disconnect()
-        rowObserversRef.current.delete(index)
+      rowHeightsRef.current.set(index, measuredHeight)
+      if (rowHeightsRef.current.size > MAX_MEASURED_ROWS) {
+        const { startIndex, endIndex } = virtualRangeRef.current
+        const keepMin = Math.max(0, Math.min(startIndex, endIndex) - MAX_MEASURED_ROWS / 2)
+        const keepMax = Math.max(startIndex, endIndex) + MAX_MEASURED_ROWS / 2
+        for (const [rowIndex] of [...rowHeightsRef.current.entries()]) {
+          if (rowIndex < keepMin || rowIndex > keepMax) {
+            rowHeightsRef.current.delete(rowIndex)
+          }
+        }
       }
-      if (!row) return
+      if (rowRefCallbacksRef.current.size > MAX_MEASURED_ROWS) {
+        const { startIndex, endIndex } = virtualRangeRef.current
+        const keepMin = Math.max(0, Math.min(startIndex, endIndex) - MAX_MEASURED_ROWS / 2)
+        const keepMax = Math.max(startIndex, endIndex) + MAX_MEASURED_ROWS / 2
+        for (const [rowIndex] of [...rowRefCallbacksRef.current.keys()]) {
+          if (rowIndex < keepMin || rowIndex > keepMax) {
+            const observer = rowObserversRef.current.get(rowIndex)
+            if (observer) {
+              observer.disconnect()
+              rowObserversRef.current.delete(rowIndex)
+            }
+            rowRefCallbacksRef.current.delete(rowIndex)
+          }
+        }
+      }
+      if (measuredHeight < 120) {
+        setRowHeightEstimate((current) =>
+          Math.abs(current - measuredHeight) < 1
+            ? current
+            : Math.round(current * 0.85 + measuredHeight * 0.15)
+        )
+      }
+      setMeasurementVersion((version) => version + 1)
+    },
+    []
+  )
 
-      const measure = () => updateRowMeasurement(index, row.getBoundingClientRect().height)
-      measure()
+  const getMeasuredRowRef = React.useCallback(
+    (index: number) => {
+      let callback = rowRefCallbacksRef.current.get(index)
+      if (!callback) {
+        callback = (row: HTMLTableRowElement | null) => {
+          const previousObserver = rowObserversRef.current.get(index)
+          if (previousObserver) {
+            previousObserver.disconnect()
+            rowObserversRef.current.delete(index)
+          }
+          if (!row) return
 
-      const observer = new ResizeObserver(measure)
-      observer.observe(row)
-      rowObserversRef.current.set(index, observer)
+          const measure = () => updateRowMeasurement(index, row.getBoundingClientRect().height)
+          measure()
+
+          const observer = new ResizeObserver(measure)
+          observer.observe(row)
+          rowObserversRef.current.set(index, observer)
+        }
+        rowRefCallbacksRef.current.set(index, callback)
+      }
+      return callback
     },
     [updateRowMeasurement]
   )
@@ -291,10 +337,14 @@ const ArrayTable: React.FC<Props> = ({
 
   const projectionDraftPaths =
     projectionState?.draftColumnPaths ?? projectionColumns.map((item) => item.path)
+  const projectionDraftPathSet = React.useMemo(
+    () => new Set(projectionDraftPaths),
+    [projectionDraftPaths]
+  )
 
   const handleProjectionSearchKeyDown = React.useCallback(
     (event: React.KeyboardEvent<HTMLInputElement>) => {
-      const count = filteredProjectionColumns.length
+      const count = Math.min(filteredProjectionColumns.length, MAX_VISIBLE_OPTIONS)
       if (count === 0) return
 
       if (event.key === 'ArrowDown') {
@@ -320,17 +370,17 @@ const ArrayTable: React.FC<Props> = ({
         event.preventDefault()
         const column = filteredProjectionColumns[projectionFocusIndex.current]
         if (column) {
-          const isChecked = projectionDraftPaths.includes(column.path)
+          const isChecked = projectionDraftPathSet.has(column.path)
           onDraftColumnSelectedChange?.(path, column.path, !isChecked)
         }
       }
     },
-    [filteredProjectionColumns, projectionDraftPaths, onDraftColumnSelectedChange, path]
+    [filteredProjectionColumns, projectionDraftPathSet, onDraftColumnSelectedChange, path]
   )
 
   const handleProjectionOptionKeyDown = React.useCallback(
     (event: React.KeyboardEvent<HTMLElement>, index: number) => {
-      const count = filteredProjectionColumns.length
+      const count = Math.min(filteredProjectionColumns.length, MAX_VISIBLE_OPTIONS)
       if (event.key === 'ArrowDown') {
         event.preventDefault()
         projectionFocusIndex.current = Math.min(index + 1, count - 1)
@@ -357,27 +407,13 @@ const ArrayTable: React.FC<Props> = ({
         event.preventDefault()
         const column = filteredProjectionColumns[index]
         if (column) {
-          const isChecked = projectionDraftPaths.includes(column.path)
+          const isChecked = projectionDraftPathSet.has(column.path)
           onDraftColumnSelectedChange?.(path, column.path, !isChecked)
         }
       }
     },
-    [filteredProjectionColumns, projectionDraftPaths, onDraftColumnSelectedChange, path]
+    [filteredProjectionColumns, projectionDraftPathSet, onDraftColumnSelectedChange, path]
   )
-
-  const highlightText = (text: string, query: string) => {
-    if (!query) return text
-    const parts = text.split(new RegExp(`(${query})`, 'gi'))
-    return parts.map((part, index) =>
-      part.toLowerCase() === query.toLowerCase() ? (
-        <span key={index} className="current-highlight">
-          {part}
-        </span>
-      ) : (
-        part
-      )
-    )
-  }
 
   const headerRenderer = (header: string) => {
     if (header === '__edit_actions__') return null
@@ -385,6 +421,7 @@ const ArrayTable: React.FC<Props> = ({
   }
 
   const draftKeys = filterState?.draftKeys ?? allKeys
+  const draftKeySet = React.useMemo(() => new Set(draftKeys), [draftKeys])
   const draftQuery = filterState?.draftQuery ?? ''
   const normalizedDraftQuery = draftQuery.trim().toLowerCase()
   const selectableKeys = normalizedDraftQuery
@@ -424,15 +461,37 @@ const ArrayTable: React.FC<Props> = ({
     return getArrayItemIndexForPath(path, currentPath)
   }, [currentResultIndex, path, searchResults])
 
+  const measurementIndex = React.useMemo(() => {
+    const entries = [...rowHeightsRef.current.entries()].sort((a, b) => a[0] - b[0])
+    const indices = entries.map(([i]) => i)
+    const cumulativeDeltas: number[] = []
+    let sum = 0
+    for (const [, height] of entries) {
+      sum += height - rowHeightEstimate
+      cumulativeDeltas.push(sum)
+    }
+    return { indices, cumulativeDeltas }
+  }, [measurementVersion, rowHeightEstimate])
+
   const getOffsetForIndex = React.useCallback(
     (index: number) => {
-      let measuredAdjustment = 0
-      rowHeightsRef.current.forEach((height, rowIndex) => {
-        if (rowIndex < index) measuredAdjustment += height - rowHeightEstimate
-      })
-      return Math.max(0, index * rowHeightEstimate + measuredAdjustment)
+      const { indices, cumulativeDeltas } = measurementIndex
+      let searchLow = 0
+      let searchHigh = indices.length - 1
+      let resultIdx = -1
+      while (searchLow <= searchHigh) {
+        const mid = (searchLow + searchHigh) >>> 1
+        if (indices[mid] < index) {
+          resultIdx = mid
+          searchLow = mid + 1
+        } else {
+          searchHigh = mid - 1
+        }
+      }
+      const delta = resultIdx >= 0 ? cumulativeDeltas[resultIdx] : 0
+      return Math.max(0, index * rowHeightEstimate + delta)
     },
-    [measurementVersion, rowHeightEstimate]
+    [measurementIndex, rowHeightEstimate]
   )
 
   const findIndexForOffset = React.useCallback(
@@ -494,6 +553,8 @@ const ArrayTable: React.FC<Props> = ({
     }
   }, [array.length, focusedSearchRowIndex, findIndexForOffset, getOffsetForIndex, virtualViewport])
 
+  virtualRangeRef.current = { startIndex: virtualRange.startIndex, endIndex: virtualRange.endIndex }
+
   const visibleRows = React.useMemo(
     () => array.slice(virtualRange.startIndex, virtualRange.endIndex),
     [array, virtualRange.endIndex, virtualRange.startIndex]
@@ -545,11 +606,11 @@ const ArrayTable: React.FC<Props> = ({
             placeholder={t('table.searchKeys')}
           />
           <div className="key-filter-options">
-            {selectableKeys.map((key) => (
+            {selectableKeys.slice(0, MAX_VISIBLE_OPTIONS).map((key) => (
               <label key={key} className="key-filter-option">
                 <input
                   type="checkbox"
-                  checked={draftKeys.includes(key)}
+                  checked={draftKeySet.has(key)}
                   onChange={(event) =>
                     onDraftKeySelectedChange?.(path, key, event.currentTarget.checked)
                   }
@@ -557,6 +618,11 @@ const ArrayTable: React.FC<Props> = ({
                 <span>{key}</span>
               </label>
             ))}
+            {selectableKeys.length > MAX_VISIBLE_OPTIONS && (
+              <div className="key-filter-option too-many-hint">
+                {t('table.tooManyOptions', { count: selectableKeys.length - MAX_VISIBLE_OPTIONS })}
+              </div>
+            )}
           </div>
           <div className="key-filter-actions">
             <button
@@ -618,7 +684,7 @@ const ArrayTable: React.FC<Props> = ({
             placeholder={t('table.searchColumnPaths')}
           />
           <div className="column-projection-options" ref={projectionListRef}>
-            {filteredProjectionColumns.map((column, index) => (
+            {filteredProjectionColumns.slice(0, MAX_VISIBLE_OPTIONS).map((column, index) => (
               <label
                 key={column.path}
                 className="column-projection-option"
@@ -630,7 +696,7 @@ const ArrayTable: React.FC<Props> = ({
               >
                 <input
                   type="checkbox"
-                  checked={projectionDraftPaths.includes(column.path)}
+                  checked={projectionDraftPathSet.has(column.path)}
                   onChange={(event) =>
                     onDraftColumnSelectedChange?.(path, column.path, event.currentTarget.checked)
                   }
@@ -638,6 +704,11 @@ const ArrayTable: React.FC<Props> = ({
                 <span className="column-projection-path">{column.path}</span>
               </label>
             ))}
+            {filteredProjectionColumns.length > MAX_VISIBLE_OPTIONS && (
+              <div className="column-projection-option too-many-hint">
+                {t('table.tooManyOptions', { count: filteredProjectionColumns.length - MAX_VISIBLE_OPTIONS })}
+              </div>
+            )}
           </div>
           <div className="column-projection-actions">
             <button
@@ -690,8 +761,8 @@ const ArrayTable: React.FC<Props> = ({
             const index = virtualRange.startIndex + offset
             return (
               <ArrayRow
-                key={`${index}-${array.length}`}
-                ref={setMeasuredRowRef(index)}
+                key={index}
+                ref={getMeasuredRowRef(index)}
                 element={item}
                 index={index}
                 dataColumns={dataColumns}
@@ -707,6 +778,7 @@ const ArrayTable: React.FC<Props> = ({
                 onDelete={onDelete}
                 onExpandedChange={onExpandedChange}
                 expandedPaths={expandedPaths}
+                autoExpandPaths={autoExpandPaths}
                 keyFilterMode={keyFilterMode}
                 keyFilters={keyFilters}
                 onBeginKeyFilterSelection={onBeginKeyFilterSelection}
@@ -781,10 +853,6 @@ function getArrayItemIndexForPath(arrayPath: string, resultPath?: string): numbe
     arrayPath === '' ? /^\[(\d+)\](?:\.|$)/ : new RegExp(`^${escapedPath}\\[(\\d+)\\](?:\\.|$)`)
   const match = resultPath.match(pattern)
   return match ? Number(match[1]) : null
-}
-
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
 export default ArrayTable

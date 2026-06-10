@@ -866,13 +866,9 @@ function App() {
     [activeTabId]
   )
 
-  const handleScrollPositionChange = useCallback(
-    (scrollTop: number) => {
-      if (!activeTabId) return
-      setTabs((prevTabs) => updateTabScrollTop(prevTabs, activeTabId, scrollTop))
-    },
-    [activeTabId]
-  )
+  const handleScrollPositionChange = useCallback((tabId: string, scrollTop: number) => {
+    setTabs((prevTabs) => updateTabScrollTop(prevTabs, tabId, scrollTop))
+  }, [])
 
   const handleExpandAll = useCallback(() => {
     if (!activeTabId) return

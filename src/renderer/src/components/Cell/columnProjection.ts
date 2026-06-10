@@ -17,10 +17,14 @@ export function createEmptyColumnProjectionState(): ColumnProjectionState {
   return {}
 }
 
-export function collectArrayLeafColumns(array: unknown[], maxDepth = 6): ProjectionColumn[] {
+const KEY_SCAN_ITEM_LIMIT = 5000
+
+export function collectArrayLeafColumns(array: unknown[], maxDepth = 6, maxItems = KEY_SCAN_ITEM_LIMIT): ProjectionColumn[] {
   const columns: ProjectionColumn[] = []
   const seenPaths = new Set<string>()
-  for (const item of array) {
+  const limit = Math.min(array.length, maxItems)
+  for (let i = 0; i < limit; i++) {
+    const item = array[i]
     if (!isObjectRecord(item)) continue
     collectLeafColumnsFromValue(item, [], columns, seenPaths, maxDepth)
   }

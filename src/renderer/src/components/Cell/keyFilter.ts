@@ -11,10 +11,14 @@ export function createEmptyKeyFilterState(): KeyFilterState {
   return {}
 }
 
-export function collectObjectArrayKeys(array: unknown[]): string[] {
+const KEY_SCAN_ITEM_LIMIT = 5000
+
+export function collectObjectArrayKeys(array: unknown[], maxItems = KEY_SCAN_ITEM_LIMIT): string[] {
   const keys: string[] = []
   const seen = new Set<string>()
-  for (const item of array) {
+  const limit = Math.min(array.length, maxItems)
+  for (let i = 0; i < limit; i++) {
+    const item = array[i]
     if (!isObjectRecord(item)) continue
     for (const key of Object.keys(item)) {
       if (!seen.has(key)) {

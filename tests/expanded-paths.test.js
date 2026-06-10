@@ -38,10 +38,10 @@ assert.deepStrictEqual(updateExpandedPaths(withDetails, '.users', false), [
 ])
 assert.deepStrictEqual(updateExpandedPaths(withDetails, '.users[0].details', true), withDetails)
 
-assert.strictEqual(isPathExpanded('', [], false), true)
-assert.strictEqual(isPathExpanded('.users', ['.users'], false), true)
-assert.strictEqual(isPathExpanded('.users', [], true), true)
-assert.strictEqual(isPathExpanded('.users', [], false), false)
+assert.strictEqual(isPathExpanded('', new Set(), false), true)
+assert.strictEqual(isPathExpanded('.users', new Set(['.users']), false), true)
+assert.strictEqual(isPathExpanded('.users', new Set(), true), true)
+assert.strictEqual(isPathExpanded('.users', new Set(), false), false)
 
 assert.deepStrictEqual(
   collectExpandablePaths({

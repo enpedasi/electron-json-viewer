@@ -153,4 +153,9 @@ assert.deepStrictEqual(
   [{ id: 1, meta: { x: 10, y: 20 } }]
 )
 
+const largeArray = Array.from({ length: 10 }, (_, i) => ({ id: i }))
+largeArray.push({ extra: true })
+assert.deepStrictEqual(collectObjectArrayKeys(largeArray, 5), ['id'])
+assert.deepStrictEqual(collectObjectArrayKeys(largeArray, 11), ['id', 'extra'])
+
 console.log('key filter state tests passed')

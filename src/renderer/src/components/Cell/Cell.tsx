@@ -3,6 +3,7 @@ import ArrayTable from './ArrayTable'
 import ObjectTable from './ObjectTable'
 import EditableCell from './EditableCell'
 import { isPathExpanded } from './expandedPaths'
+import { highlightText } from './highlightText'
 import { KeyFilterState } from './keyFilter'
 import { ColumnProjectionState, ProjectionColumn } from './columnProjection'
 import { Translator } from '../../i18n'
@@ -20,7 +21,8 @@ interface CellProps {
   onDataChange?: (path: string, newValue: any) => void
   onDelete?: (path: string) => void
   onExpandedChange?: (path: string, expanded: boolean) => void
-  expandedPaths?: string[]
+  expandedPaths?: ReadonlySet<string> | string[]
+  autoExpandPaths?: ReadonlySet<string>
   keyFilterMode?: boolean
   keyFilters?: KeyFilterState
   onBeginKeyFilterSelection?: (path: string, allKeys: string[]) => void
@@ -42,6 +44,16 @@ interface CellProps {
   t: Translator
 }
 
+const EMPTY_PATH_SET: ReadonlySet<string> = new Set()
+const LONG_INLINE_VALUE_LENGTH = 24
+
+const shouldCompactStringValue = (value: string, query = '') => {
+  if (value.length < LONG_INLINE_VALUE_LENGTH) return false
+  if (/\s/.test(value)) return false
+  if (query && value.toLowerCase().includes(query.toLowerCase())) return false
+  return true
+}
+
 const Cell: React.FC<CellProps> = ({
   element,
   depth = 0,
@@ -55,7 +67,8 @@ const Cell: React.FC<CellProps> = ({
   onDataChange,
   onDelete,
   onExpandedChange,
-  expandedPaths = [],
+  expandedPaths = EMPTY_PATH_SET,
+  autoExpandPaths = EMPTY_PATH_SET,
   keyFilterMode = false,
   keyFilters = {},
   onBeginKeyFilterSelection,
@@ -77,8 +90,7 @@ const Cell: React.FC<CellProps> = ({
   t
 }) => {
   const cellRef = useRef<HTMLDivElement>(null)
-  const shouldAutoExpand =
-    searchResults?.some((result) => result.path !== path && result.path.startsWith(path)) || false
+  const shouldAutoExpand = autoExpandPaths.has(path)
   const expanded = isPathExpanded(path, expandedPaths, isRoot || shouldAutoExpand)
 
   const toggleExpanded = useCallback(() => {
@@ -108,20 +120,6 @@ const Cell: React.FC<CellProps> = ({
     }
   }, [searchResults, currentResultIndex, path, onExpandedChange])
 
-  const highlightText = (text: string, query: string) => {
-    if (!query) return text
-    const parts = text.split(new RegExp(`(${query})`, 'gi'))
-    return parts.map((part, index) =>
-      part.toLowerCase() === query.toLowerCase() ? (
-        <span key={index} className="current-highlight">
-          {part}
-        </span>
-      ) : (
-        part
-      )
-    )
-  }
-
   if (depth >= 100) {
     return <span className="value">{t('cell.maxDepth')}</span>
   }
@@ -147,6 +145,7 @@ const Cell: React.FC<CellProps> = ({
             onDelete={onDelete}
             onExpandedChange={onExpandedChange}
             expandedPaths={expandedPaths}
+            autoExpandPaths={autoExpandPaths}
             keyFilterMode={keyFilterMode}
             keyFilters={keyFilters}
             onBeginKeyFilterSelection={onBeginKeyFilterSelection}
@@ -191,6 +190,7 @@ const Cell: React.FC<CellProps> = ({
             onDelete={onDelete}
             onExpandedChange={onExpandedChange}
             expandedPaths={expandedPaths}
+            autoExpandPaths={autoExpandPaths}
             keyFilterMode={keyFilterMode}
             keyFilters={keyFilters}
             onBeginKeyFilterSelection={onBeginKeyFilterSelection}
@@ -223,11 +223,16 @@ const Cell: React.FC<CellProps> = ({
       currentResultIndex !== undefined &&
       searchResults[currentResultIndex]?.path === path
     const valueString = String(element)
+    const compactLongValue =
+      typeof element === 'string' && shouldCompactStringValue(valueString, searchQuery)
     return (
       <span
         ref={cellRef}
-        className={`value ${typeof element} ${isCurrentValueResult ? 'current-highlight' : ''}`}
+        className={`value ${typeof element} ${compactLongValue ? 'compact-long-value' : ''} ${
+          isCurrentValueResult ? 'current-highlight' : ''
+        }`}
         data-path={path}
+        title={compactLongValue ? valueString : undefined}
       >
         {highlightText(valueString, searchQuery || '')}
       </span>

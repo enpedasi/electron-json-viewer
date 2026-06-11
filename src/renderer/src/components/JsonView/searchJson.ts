@@ -6,6 +6,29 @@ export interface SearchResult {
   value: any
 }
 
+export function collectSearchAncestorPaths(results: SearchResult[]): ReadonlySet<string> {
+  const ancestors = new Set<string>()
+  for (const result of results) {
+    const path = result.path
+    let pos = 0
+    while (pos < path.length) {
+      const ch = path[pos]
+      if (ch === '.') {
+        ancestors.add(path.slice(0, pos))
+        pos++
+      } else if (ch === '[') {
+        ancestors.add(path.slice(0, pos))
+        const closeIdx = path.indexOf(']', pos)
+        if (closeIdx === -1) break
+        pos = closeIdx + 1
+      } else {
+        pos++
+      }
+    }
+  }
+  return ancestors
+}
+
 export function searchJson(json: any, query: string, keyFilters: KeyFilterState = {}, columnProjections: ColumnProjectionState = {}): SearchResult[] {
   const results: SearchResult[] = []
   const searchQuery = query.toLowerCase()

@@ -27,7 +27,7 @@ const moduleUnderTest = { exports: {} }
 const runModule = new Function('exports', 'module', 'require', code)
 runModule(moduleUnderTest.exports, moduleUnderTest, require)
 
-const { searchJson } = moduleUnderTest.exports
+const { searchJson, collectSearchAncestorPaths } = moduleUnderTest.exports
 
 const data = [
   { id: 1, name: 'Ada', email: 'ada@example.com', status: 'active' },
@@ -109,3 +109,16 @@ assert.deepStrictEqual(
   searchJson(projectedStatuses, 'J-CY1220', {}, columnProjections).map((result) => result.path),
   ['[0].definition.unitName']
 )
+
+const ancestors = collectSearchAncestorPaths([
+  { path: '.users[3].name', value: 'test' }
+])
+assert.deepStrictEqual(
+  [...ancestors].sort(),
+  ['', '.users', '.users[3]'].sort()
+)
+
+const mismatchAncestors = collectSearchAncestorPaths([
+  { path: '.users[0].id', value: 1 }
+])
+assert.strictEqual(mismatchAncestors.has('.user'), false)

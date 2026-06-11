@@ -1,9 +1,11 @@
 export function isPathExpanded(
   path: string,
-  expandedPaths: string[] = [],
+  expandedPaths: ReadonlySet<string> | string[] = new Set(),
   shouldAutoExpand = false
 ): boolean {
-  return path === '' || shouldAutoExpand || expandedPaths.includes(path)
+  if (path === '' || shouldAutoExpand) return true
+  if (expandedPaths instanceof Set) return expandedPaths.has(path)
+  return expandedPaths.includes(path)
 }
 
 export function updateExpandedPaths(
@@ -20,27 +22,28 @@ export function updateExpandedPaths(
   return expandedPaths.filter((expandedPath) => expandedPath !== path)
 }
 
-export function collectExpandablePaths(element: unknown, path = ''): string[] {
-  if (typeof element !== 'object' || element === null) return []
-
-  const paths: string[] = []
+export function collectExpandablePaths(element: unknown, path = '', acc: string[] = []): string[] {
+  if (typeof element !== 'object' || element === null) return acc
 
   if (Array.isArray(element)) {
-    element.forEach((item, index) => {
+    for (let index = 0; index < element.length; index++) {
+      const item = element[index]
       const childPath = `${path}[${index}]`
       if (typeof item === 'object' && item !== null) {
-        paths.push(childPath, ...collectExpandablePaths(item, childPath))
+        acc.push(childPath)
+        collectExpandablePaths(item, childPath, acc)
       }
-    })
-    return paths
+    }
+    return acc
   }
 
-  Object.entries(element).forEach(([key, value]) => {
+  for (const [key, value] of Object.entries(element)) {
     const childPath = `${path}.${key}`
     if (typeof value === 'object' && value !== null) {
-      paths.push(childPath, ...collectExpandablePaths(value, childPath))
+      acc.push(childPath)
+      collectExpandablePaths(value, childPath, acc)
     }
-  })
+  }
 
-  return paths
+  return acc
 }

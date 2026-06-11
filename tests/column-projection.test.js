@@ -131,6 +131,9 @@ assert.strictEqual(isProjectedPathVisible(state, '.statuses[0].unitStatus.jobNum
 assert.strictEqual(isProjectedPathVisible(state, '.statuses[0].unitStatus.retCode'), false)
 assert.strictEqual(isProjectedPathVisible(state, '.metadata.count'), true)
 
+const unprojectedData = { rows: statuses }
+assert.strictEqual(applyColumnProjectionsToData(unprojectedData, {}), unprojectedData)
+
 const copiedColumns = [
   'unitStatus.srcExecID',
   'unitStatus.schStartTime',
@@ -213,5 +216,12 @@ assert.deepStrictEqual(copied, {
 
 state = clearColumnProjection(state, '.statuses')
 assert.strictEqual(hasActiveColumnProjection(state, '.statuses'), false)
+
+const manyRows = Array.from({ length: 10 }, (_, i) => ({ a: i }))
+manyRows.push({ b: 1 })
+const limitedColumns = collectArrayLeafColumns(manyRows, 6, 5)
+assert.deepStrictEqual(limitedColumns.map((c) => c.path), ['a'])
+const allColumns = collectArrayLeafColumns(manyRows, 6, 11)
+assert.deepStrictEqual(allColumns.map((c) => c.path).sort(), ['a', 'b'].sort())
 
 console.log('column projection tests passed')

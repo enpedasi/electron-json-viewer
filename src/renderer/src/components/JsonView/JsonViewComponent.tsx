@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useLayoutEffect, useCallback, useState } from 'react'
+import React, { useRef, useEffect, useLayoutEffect, useCallback, useState, useMemo } from 'react'
 import Cell from '../Cell/Cell'
 import TextEditor from './TextEditor'
 import { TabState } from '../../App'
@@ -12,6 +12,7 @@ import {
   applyColumnProjectionsToData
 } from '../Cell/columnProjection'
 import { Translator } from '../../i18n'
+import { collectSearchAncestorPaths } from './searchJson'
 
 interface JsonViewProps {
   tabData: TabState
@@ -32,7 +33,7 @@ interface JsonViewProps {
   onRedo?: () => void
   onTextEditorChange?: (newText: string) => void
   onExpandedChange?: (path: string, expanded: boolean) => void
-  onScrollPositionChange?: (scrollTop: number) => void
+  onScrollPositionChange?: (tabId: string, scrollTop: number) => void
   onExpandAll?: () => void
   onToggleKeyFilterMode?: () => void
   onBeginKeyFilterSelection?: (path: string, allKeys: string[]) => void
@@ -97,6 +98,16 @@ const JsonViewComponent: React.FC<JsonViewProps> = ({
   const searchInputRef = useRef<HTMLInputElement>(null)
   const jsonViewerContainerRef = useRef<HTMLDivElement>(null)
 
+  const expandedPathsSet = useMemo(
+    () => new Set<string>(tabData.expandedPaths),
+    [tabData.expandedPaths]
+  )
+
+  const autoExpandPaths = useMemo(
+    () => collectSearchAncestorPaths(tabData.searchResults),
+    [tabData.searchResults]
+  )
+
   const manageHighlightAndScroll = useCallback(() => {
     const container = jsonViewerContainerRef.current
     if (!container) return
@@ -153,25 +164,6 @@ const JsonViewComponent: React.FC<JsonViewProps> = ({
     }
   }, [searchVisible])
 
-  useLayoutEffect(() => {
-    const container = jsonViewerContainerRef.current
-    if (container) {
-      container.scrollTop = tabData.scrollTop
-    }
-  }, [tabData.id, tabData.scrollTop])
-
-  const handleViewerScroll = useCallback(
-    (event: React.UIEvent<HTMLDivElement>) => {
-      onScrollPositionChange?.(event.currentTarget.scrollTop)
-    },
-    [onScrollPositionChange]
-  )
-
-  const handleCloseSearch = useCallback(() => {
-    onSearchVisibleChange(false)
-    onClearSearch()
-  }, [onSearchVisibleChange, onClearSearch])
-
   const isEditMode = tabData.mode === 'edit'
   const hasGridData =
     tabData.viewMode === 'grid' &&
@@ -182,10 +174,134 @@ const JsonViewComponent: React.FC<JsonViewProps> = ({
       'error' in tabData.jsonData
     )
 
+  const scrollTopRef = useRef(tabData.scrollTop)
+
+  useLayoutEffect(() => {
+    const container = jsonViewerContainerRef.current
+    if (container) {
+      container.scrollTop = tabData.scrollTop
+    }
+  }, [tabData.id])
+
+  // This component is keyed by tabData.id in App.tsx (<JsonViewComponent key={activeTabData.id} />),
+  // so tab-switch triggers unmount+remount. The empty deps [] is safe because cleanup always runs
+  // for the correct tab instance. If the key is ever removed, this will silently save the wrong tab's
+  // scrollTop — consider switching to a ref-based callback identity pattern if that happens.
+  useEffect(() => {
+    return () => {
+      onScrollPositionChange?.(tabData.id, scrollTopRef.current)
+    }
+  }, [])
+
+  const handleViewerScroll = useCallback(
+    (event: React.UIEvent<HTMLDivElement>) => {
+      scrollTopRef.current = event.currentTarget.scrollTop
+    },
+    []
+  )
+
+  useEffect(() => {
+    const handleDocumentKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null
+      const isEditableTarget =
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target?.isContentEditable
+
+      if (
+        !hasGridData ||
+        isEditableTarget ||
+        !(event.ctrlKey || event.metaKey) ||
+        event.key !== 'Home'
+      ) {
+        return
+      }
+
+      const container = jsonViewerContainerRef.current
+      if (!container) return
+
+      event.preventDefault()
+      container.scrollTop = 0
+      scrollTopRef.current = 0
+    }
+
+    document.addEventListener('keydown', handleDocumentKeyDown, { capture: true })
+    return () => document.removeEventListener('keydown', handleDocumentKeyDown, { capture: true })
+  }, [hasGridData])
+
+  const handleCloseSearch = useCallback(() => {
+    onSearchVisibleChange(false)
+    onClearSearch()
+  }, [onSearchVisibleChange, onClearSearch])
+
   return (
     <div className="json-view-content">
+      {hasGridData && (
+        <div className="edit-actions-overlay">
+          <button className="floating-btn" onClick={onExpandAll} title={t('json.expandAll')}>
+            {t('json.expandAll')}
+          </button>
+          <button
+            className={`floating-btn ${tabData.keyFilterMode ? 'active' : ''}`}
+            onClick={onToggleKeyFilterMode}
+            title={t('json.keyFilterMode')}
+          >
+            {t('json.keyFilter')}{hasAnyActiveKeyFilter(tabData.keyFilters) ? ' *' : ''}
+          </button>
+          <button
+            className={`floating-btn ${tabData.columnProjectionMode ? 'active' : ''}`}
+            onClick={onToggleColumnProjectionMode}
+            title={t('json.columnProjectionMode')}
+          >
+            {t('json.columnProjection')}{hasAnyActiveColumnProjection(tabData.columnProjections) ? ' *' : ''}
+          </button>
+          <span className="floating-separator" />
+          <CopyFilterButton
+            jsonData={tabData.jsonData}
+            keyFilters={tabData.keyFilters}
+            columnProjections={tabData.columnProjections}
+            t={t}
+          />
+          {isEditMode && <span className="floating-separator" />}
+          {isEditMode && (
+            <>
+              <button
+                className="floating-btn"
+                onClick={onUndo}
+                disabled={tabData.history.undo.length === 0}
+                title={t('json.undo')}
+              >
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                  <path d="M3.5 2v4.5H8l-1.6-1.6A3.5 3.5 0 0 1 12 8.5 3.5 3.5 0 0 1 6.4 10l-1.1 1.1A5 5 0 1 0 7.6 4.1L10 2H3.5z" />
+                </svg>
+              </button>
+              <button
+                className="floating-btn"
+                onClick={onRedo}
+                disabled={tabData.history.redo.length === 0}
+                title={t('json.redo')}
+              >
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                  <path d="M12.5 2v4.5H8l1.6-1.6A3.5 3.5 0 0 0 4 8.5a3.5 3.5 0 0 0 5.6 1.5l1.1 1.1A5 5 0 1 1 8.4 4.1L6 2h6.5z" />
+                </svg>
+              </button>
+              <span className="floating-separator" />
+              <button
+                className="floating-btn save-btn"
+                onClick={onSave}
+                disabled={!tabData.isDirty}
+                title={t('json.save')}
+              >
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                  <path d="M13.5 1h-12A1.5 1.5 0 0 0 0 2.5v11A1.5 1.5 0 0 0 1.5 15h12a1.5 1.5 0 0 0 1.5-1.5V5l-4-4zM5 2h4v3H5V2zm6 12H5v-4h6v4zm2-.5a.5.5 0 0 1-.5.5H12V9H4v5H2.5a.5.5 0 0 1-.5-.5v-11a.5.5 0 0 1 .5-.5H4v4h6V2.5l3 3V13.5z" />
+                </svg>
+              </button>
+            </>
+          )}
+        </div>
+      )}
       <div
-        className="json-viewer-container"
+        className={`json-viewer-container ${hasGridData ? 'has-grid-actions' : ''}`}
         ref={jsonViewerContainerRef}
         onScroll={handleViewerScroll}
       >
@@ -240,71 +356,6 @@ const JsonViewComponent: React.FC<JsonViewProps> = ({
                 </svg>
               </button>
             </div>
-          </div>
-        )}
-
-        {hasGridData && (
-          <div className="edit-actions-overlay">
-            <button className="floating-btn" onClick={onExpandAll} title={t('json.expandAll')}>
-              {t('json.expandAll')}
-            </button>
-            <button
-              className={`floating-btn ${tabData.keyFilterMode ? 'active' : ''}`}
-              onClick={onToggleKeyFilterMode}
-              title={t('json.keyFilterMode')}
-            >
-              {t('json.keyFilter')}{hasAnyActiveKeyFilter(tabData.keyFilters) ? ' *' : ''}
-            </button>
-            <button
-              className={`floating-btn ${tabData.columnProjectionMode ? 'active' : ''}`}
-              onClick={onToggleColumnProjectionMode}
-              title={t('json.columnProjectionMode')}
-            >
-              {t('json.columnProjection')}{hasAnyActiveColumnProjection(tabData.columnProjections) ? ' *' : ''}
-            </button>
-            <span className="floating-separator" />
-            <CopyFilterButton
-              jsonData={tabData.jsonData}
-              keyFilters={tabData.keyFilters}
-              columnProjections={tabData.columnProjections}
-              t={t}
-            />
-            {isEditMode && <span className="floating-separator" />}
-            {isEditMode && (
-              <>
-                <button
-                  className="floating-btn"
-                  onClick={onUndo}
-                  disabled={tabData.history.undo.length === 0}
-                  title={t('json.undo')}
-                >
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                    <path d="M3.5 2v4.5H8l-1.6-1.6A3.5 3.5 0 0 1 12 8.5 3.5 3.5 0 0 1 6.4 10l-1.1 1.1A5 5 0 1 0 7.6 4.1L10 2H3.5z" />
-                  </svg>
-                </button>
-                <button
-                  className="floating-btn"
-                  onClick={onRedo}
-                  disabled={tabData.history.redo.length === 0}
-                  title={t('json.redo')}
-                >
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                    <path d="M12.5 2v4.5H8l1.6-1.6A3.5 3.5 0 0 0 4 8.5a3.5 3.5 0 0 0 5.6 1.5l1.1 1.1A5 5 0 1 1 8.4 4.1L6 2h6.5z" />
-                  </svg>
-                </button>
-                <span className="floating-separator" />
-                <button
-                  className="floating-btn save-btn"
-                  onClick={onSave}
-                  disabled={!tabData.isDirty}
-                  title={t('json.save')}
-                >
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                    <path d="M13.5 1h-12A1.5 1.5 0 0 0 0 2.5v11A1.5 1.5 0 0 0 1.5 15h12a1.5 1.5 0 0 0 1.5-1.5V5l-4-4zM5 2h4v3H5V2zm6 12H5v-4h6v4zm2-.5a.5.5 0 0 1-.5.5H12V9H4v5H2.5a.5.5 0 0 1-.5-.5v-11a.5.5 0 0 1 .5-.5H4v4h6V2.5l3 3V13.5z" />
-                  </svg>
-                </button>
-              </>
-            )}
           </div>
         )}
 
@@ -367,7 +418,8 @@ const JsonViewComponent: React.FC<JsonViewProps> = ({
                 onDataChange={onDataChange}
                 onDelete={onDelete}
                 onExpandedChange={onExpandedChange}
-                expandedPaths={tabData.expandedPaths}
+                expandedPaths={expandedPathsSet}
+                autoExpandPaths={autoExpandPaths}
                 keyFilterMode={tabData.keyFilterMode}
                 keyFilters={tabData.keyFilters}
                 onBeginKeyFilterSelection={onBeginKeyFilterSelection}

@@ -116,10 +116,12 @@ assert.deepStrictEqual(
 )
 
 // 3. No filter (pass through)
+const unfilteredRows = [{ a: 1, b: 2 }]
 assert.deepStrictEqual(
-  applyKeyFiltersToData([{ a: 1, b: 2 }], {}),
+  applyKeyFiltersToData(unfilteredRows, {}),
   [{ a: 1, b: 2 }]
 )
+assert.strictEqual(applyKeyFiltersToData(unfilteredRows, {}), unfilteredRows)
 
 // 4. Mixed array (objects and primitives)
 assert.deepStrictEqual(
@@ -150,5 +152,10 @@ assert.deepStrictEqual(
   ),
   [{ id: 1, meta: { x: 10, y: 20 } }]
 )
+
+const largeArray = Array.from({ length: 10 }, (_, i) => ({ id: i }))
+largeArray.push({ extra: true })
+assert.deepStrictEqual(collectObjectArrayKeys(largeArray, 5), ['id'])
+assert.deepStrictEqual(collectObjectArrayKeys(largeArray, 11), ['id', 'extra'])
 
 console.log('key filter state tests passed')

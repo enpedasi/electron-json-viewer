@@ -2,8 +2,11 @@ import React, { memo, useMemo, useState, useCallback } from 'react'
 import ResizableTable from './ResizableTable'
 import Cell from './Cell'
 import { KeyFilterState } from './keyFilter'
+import { highlightText } from './highlightText'
 import { ColumnProjectionState, ProjectionColumn } from './columnProjection'
 import { Translator } from '../../i18n'
+
+const EMPTY_PATH_SET: ReadonlySet<string> = new Set()
 
 interface ObjectTableProps {
   member: Record<string, any>
@@ -19,7 +22,8 @@ interface ObjectTableProps {
   onAddProperty?: (path: string, key: string, value: any) => void
   onRenameKey?: (path: string, oldKey: string, newKey: string) => void
   onExpandedChange?: (path: string, expanded: boolean) => void
-  expandedPaths?: string[]
+  expandedPaths?: ReadonlySet<string> | string[]
+  autoExpandPaths?: ReadonlySet<string>
   keyFilterMode?: boolean
   keyFilters?: KeyFilterState
   onBeginKeyFilterSelection?: (path: string, allKeys: string[]) => void
@@ -60,7 +64,8 @@ const ObjectTable: React.FC<ObjectTableProps> = ({
   onAddProperty,
   onRenameKey,
   onExpandedChange,
-  expandedPaths = [],
+  expandedPaths = EMPTY_PATH_SET,
+  autoExpandPaths = EMPTY_PATH_SET,
   keyFilterMode = false,
   keyFilters = {},
   onBeginKeyFilterSelection,
@@ -91,20 +96,6 @@ const ObjectTable: React.FC<ObjectTableProps> = ({
     }
     return base
   }, [isEditMode, t])
-
-  const highlightText = (text: string, query: string) => {
-    if (!query) return text
-    const parts = text.split(new RegExp(`(${query})`, 'gi'))
-    return parts.map((part, index) =>
-      part.toLowerCase() === query.toLowerCase() ? (
-        <span key={index} className="current-highlight">
-          {part}
-        </span>
-      ) : (
-        part
-      )
-    )
-  }
 
   const [newKeyName, setNewKeyName] = useState('')
   const [addingNew, setAddingNew] = useState(false)
@@ -188,6 +179,7 @@ const ObjectTable: React.FC<ObjectTableProps> = ({
               onDelete={onDelete}
               onExpandedChange={onExpandedChange}
               expandedPaths={expandedPaths}
+              autoExpandPaths={autoExpandPaths}
               keyFilterMode={keyFilterMode}
               keyFilters={keyFilters}
               onBeginKeyFilterSelection={onBeginKeyFilterSelection}

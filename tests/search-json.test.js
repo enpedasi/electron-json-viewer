@@ -122,3 +122,72 @@ const mismatchAncestors = collectSearchAncestorPaths([
   { path: '.users[0].id', value: 1 }
 ])
 assert.strictEqual(mismatchAncestors.has('.user'), false)
+
+const rowFilterData = [
+  { status: 'active', note: 'alpha' },
+  { status: 'paused', note: 'alpha-hidden' }
+]
+const rowFilters = {
+  '': { status: { type: 'values', selectedValues: ['active'] } }
+}
+assert.deepStrictEqual(
+  searchJson(rowFilterData, 'alpha', {}, {}, rowFilters).map((r) => r.path),
+  ['[0].note']
+)
+assert.strictEqual(
+  searchJson(rowFilterData, 'alpha', {}, {}, {
+    '': { status: { type: 'values', selectedValues: [] } }
+  }).length,
+  2
+)
+
+const unwindOrders = [
+  {
+    id: 1,
+    items: [{ sku: 'A-1', qty: 2, secretNote: 'hidden-gem' }]
+  }
+]
+const unwinds = { '': { relativePath: 'items' } }
+const unwindProjections = {
+  '': {
+    isSelecting: false,
+    appliedColumns: [
+      { path: 'id', label: 'id', groupPath: '' },
+      { path: 'items[].sku', label: 'sku', groupPath: 'items[]' }
+    ],
+    draftColumnPaths: ['id', 'items[].sku'],
+    draftQuery: ''
+  }
+}
+assert.deepStrictEqual(
+  searchJson(unwindOrders, 'hidden-gem', {}, unwindProjections, {}, unwinds),
+  []
+)
+assert.deepStrictEqual(
+  searchJson(unwindOrders, 'A-1', {}, unwindProjections, {}, unwinds).map((r) => r.path),
+  ['[0].items[0].sku']
+)
+assert.strictEqual(searchJson(unwindOrders, 'hidden-gem').length, 1)
+
+const unwindRowFilterData = [
+  {
+    id: 1,
+    items: [
+      { sku: 'A-1', note: 'keep-me' },
+      { sku: 'B-2', note: 'hide-me' }
+    ]
+  }
+]
+const unwindRowFilters = {
+  '': { 'items[].sku': { type: 'values', selectedValues: ['A-1'] } }
+}
+assert.deepStrictEqual(
+  searchJson(unwindRowFilterData, 'keep-me', {}, {}, unwindRowFilters, unwinds).map(
+    (r) => r.path
+  ),
+  ['[0].items[0].note']
+)
+assert.deepStrictEqual(
+  searchJson(unwindRowFilterData, 'hide-me', {}, {}, unwindRowFilters, unwinds),
+  []
+)

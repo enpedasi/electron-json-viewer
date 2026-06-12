@@ -2,18 +2,25 @@ import React from 'react'
 import Cell from './Cell'
 import { KeyFilterState } from './keyFilter'
 import { ColumnProjectionState, ProjectionColumn, getValueByRelativePath } from './columnProjection'
+import { RowFilterCondition, RowFilterState } from './rowFilter'
+import { RowEntryChild } from './rowEntries'
+import { UnwindState, getUnwoundCellPath, resolveUnwoundValue } from './unwind'
+import { PrunePathSets } from '../JsonView/searchPrune'
 import { Translator } from '../../i18n'
 
 const EMPTY_PATH_SET: ReadonlySet<string> = new Set()
 
 interface DataColumn {
   header: string
+  id?: string
   valuePath?: string
 }
 
 interface ArrayRowProps {
   element: any
-  index: number
+  indexLabel: string
+  entryChild?: RowEntryChild
+  unwindRelativePath?: string
   dataColumns?: DataColumn[]
   valueColSpan?: number
   depth: number
@@ -25,9 +32,13 @@ interface ArrayRowProps {
   isEditMode?: boolean
   onDataChange?: (path: string, newValue: any) => void
   onDelete?: (path: string) => void
+  onAddProperty?: (path: string, key: string, value: any) => void
+  onAddItem?: (path: string, value: any) => void
+  onRenameKey?: (path: string, oldKey: string, newKey: string) => void
   onExpandedChange?: (path: string, expanded: boolean) => void
   expandedPaths?: ReadonlySet<string> | string[]
   autoExpandPaths?: ReadonlySet<string>
+  prunePaths?: PrunePathSets | null
   keyFilterMode?: boolean
   keyFilters?: KeyFilterState
   onBeginKeyFilterSelection?: (path: string, allKeys: string[]) => void
@@ -44,6 +55,12 @@ interface ArrayRowProps {
   onApplyColumnProjection?: (path: string, allColumns: ProjectionColumn[]) => void
   onCancelColumnProjectionSelection?: (path: string) => void
   onClearColumnProjection?: (path: string) => void
+  rowFilters?: RowFilterState
+  onSetRowFilter?: (path: string, columnId: string, condition: RowFilterCondition) => void
+  onClearRowFilterColumn?: (path: string, columnId: string) => void
+  onClearRowFilters?: (path: string) => void
+  unwinds?: UnwindState
+  onSetUnwind?: (path: string, relativePath: string | null) => void
   onSaveSelectionOptions?: () => void
   hasActiveSelection?: boolean
   t: Translator
@@ -53,7 +70,9 @@ const ArrayRow = React.forwardRef<HTMLTableRowElement, ArrayRowProps>(
   (
     {
       element,
-      index,
+      indexLabel,
+      entryChild,
+      unwindRelativePath,
       dataColumns = [],
       valueColSpan = 1,
       depth,
@@ -65,9 +84,13 @@ const ArrayRow = React.forwardRef<HTMLTableRowElement, ArrayRowProps>(
       isEditMode = false,
       onDataChange,
       onDelete,
+      onAddProperty,
+      onAddItem,
+      onRenameKey,
       onExpandedChange,
       expandedPaths = EMPTY_PATH_SET,
       autoExpandPaths = EMPTY_PATH_SET,
+      prunePaths = null,
       keyFilterMode = false,
       keyFilters = {},
       onBeginKeyFilterSelection,
@@ -84,6 +107,12 @@ const ArrayRow = React.forwardRef<HTMLTableRowElement, ArrayRowProps>(
       onApplyColumnProjection,
       onCancelColumnProjectionSelection,
       onClearColumnProjection,
+      rowFilters = {},
+      onSetRowFilter,
+      onClearRowFilterColumn,
+      onClearRowFilters,
+      unwinds = {},
+      onSetUnwind,
       onSaveSelectionOptions,
       hasActiveSelection = false,
       t
@@ -94,26 +123,36 @@ const ArrayRow = React.forwardRef<HTMLTableRowElement, ArrayRowProps>(
 
     return (
       <tr ref={ref} className={`array-el ${typeOfEl}`}>
-        <td className={`index ${typeOfEl}`}>{index}</td>
+        <td className={`index ${typeOfEl}`}>{indexLabel}</td>
         {typeOfEl === 'object' ? (
           dataColumns.map(({ header, valuePath }) => {
-            const relativePath = valuePath ?? header
+            const columnId = valuePath ?? header
+            const cellElement = unwindRelativePath
+              ? resolveUnwoundValue(element, entryChild, columnId, unwindRelativePath)
+              : getValueByRelativePath(element, columnId)
+            const cellPath = unwindRelativePath
+              ? getUnwoundCellPath(path, entryChild, columnId, unwindRelativePath)
+              : `${path}.${columnId}`
             return (
-              <td key={relativePath} className="member">
+              <td key={columnId} className="member">
                 <Cell
-                  element={getValueByRelativePath(element, relativePath)}
+                  element={cellElement}
                   depth={depth + 1}
                   searchQuery={searchQuery}
                   searchResults={searchResults}
                   currentResultIndex={currentResultIndex}
                   searchInputRef={searchInputRef}
-                  path={`${path}.${relativePath}`}
+                  path={cellPath}
                   isEditMode={isEditMode}
                   onDataChange={onDataChange}
                   onDelete={onDelete}
+                  onAddProperty={onAddProperty}
+                  onAddItem={onAddItem}
+                  onRenameKey={onRenameKey}
                   onExpandedChange={onExpandedChange}
                   expandedPaths={expandedPaths}
                   autoExpandPaths={autoExpandPaths}
+                  prunePaths={prunePaths}
                   keyFilterMode={keyFilterMode}
                   keyFilters={keyFilters}
                   onBeginKeyFilterSelection={onBeginKeyFilterSelection}
@@ -130,6 +169,12 @@ const ArrayRow = React.forwardRef<HTMLTableRowElement, ArrayRowProps>(
                   onApplyColumnProjection={onApplyColumnProjection}
                   onCancelColumnProjectionSelection={onCancelColumnProjectionSelection}
                   onClearColumnProjection={onClearColumnProjection}
+                  rowFilters={rowFilters}
+                  onSetRowFilter={onSetRowFilter}
+                  onClearRowFilterColumn={onClearRowFilterColumn}
+                  onClearRowFilters={onClearRowFilters}
+                  unwinds={unwinds}
+                  onSetUnwind={onSetUnwind}
                   onSaveSelectionOptions={onSaveSelectionOptions}
                   hasActiveSelection={hasActiveSelection}
                   t={t}
@@ -150,9 +195,21 @@ const ArrayRow = React.forwardRef<HTMLTableRowElement, ArrayRowProps>(
               isEditMode={isEditMode}
               onDataChange={onDataChange}
               onDelete={onDelete}
+              onAddProperty={onAddProperty}
+              onAddItem={onAddItem}
+              onRenameKey={onRenameKey}
               onExpandedChange={onExpandedChange}
               expandedPaths={expandedPaths}
               autoExpandPaths={autoExpandPaths}
+              prunePaths={prunePaths}
+              keyFilterMode={keyFilterMode}
+              keyFilters={keyFilters}
+              onBeginKeyFilterSelection={onBeginKeyFilterSelection}
+              onDraftKeySelectedChange={onDraftKeySelectedChange}
+              onDraftKeyFilterQueryChange={onDraftKeyFilterQueryChange}
+              onApplyKeyFilter={onApplyKeyFilter}
+              onCancelKeyFilterSelection={onCancelKeyFilterSelection}
+              onClearKeyFilter={onClearKeyFilter}
               columnProjectionMode={columnProjectionMode}
               columnProjections={columnProjections}
               onBeginColumnProjectionSelection={onBeginColumnProjectionSelection}
@@ -161,13 +218,19 @@ const ArrayRow = React.forwardRef<HTMLTableRowElement, ArrayRowProps>(
               onApplyColumnProjection={onApplyColumnProjection}
               onCancelColumnProjectionSelection={onCancelColumnProjectionSelection}
               onClearColumnProjection={onClearColumnProjection}
+              rowFilters={rowFilters}
+              onSetRowFilter={onSetRowFilter}
+              onClearRowFilterColumn={onClearRowFilterColumn}
+              onClearRowFilters={onClearRowFilters}
+              unwinds={unwinds}
+              onSetUnwind={onSetUnwind}
               onSaveSelectionOptions={onSaveSelectionOptions}
               hasActiveSelection={hasActiveSelection}
               t={t}
             />
           </td>
         )}
-        {isEditMode && (
+        {isEditMode && !unwindRelativePath && (
           <td className="row-actions">
             <button
               className="delete-row-btn"

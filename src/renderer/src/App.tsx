@@ -50,11 +50,20 @@ import {
   ProjectionColumn
 } from './components/Cell/columnProjection'
 import {
+  RowFilterState,
+  RowFilterCondition,
+  createEmptyRowFilterState,
+  setRowFilterCondition,
+  clearRowFilterColumn,
+  clearRowFilters
+} from './components/Cell/rowFilter'
+import { UnwindState, createEmptyUnwindState } from './components/Cell/unwind'
+import {
   buildSelectionOptionsDto,
   serializeSelectionOptions,
   parseSelectionOptions,
   applySelectionOptionsToData,
-  hasAnyActiveSelection
+  hasAnyPersistableSelection
 } from './components/Cell/selectionOptions'
 import {
   Language,
@@ -99,6 +108,9 @@ export interface TabState {
   keyFilters: KeyFilterState
   columnProjectionMode: boolean
   columnProjections: ColumnProjectionState
+  rowFilters: RowFilterState
+  searchPruneMode: boolean
+  unwinds: UnwindState
 }
 
 const MAX_HISTORY = 100
@@ -153,7 +165,10 @@ function App() {
         keyFilterMode: false,
         keyFilters: createEmptyKeyFilterState(),
         columnProjectionMode: false,
-        columnProjections: createEmptyColumnProjectionState()
+        columnProjections: createEmptyColumnProjectionState(),
+        rowFilters: createEmptyRowFilterState(),
+        searchPruneMode: false,
+        unwinds: createEmptyUnwindState()
       }
     },
     []
@@ -343,7 +358,10 @@ function App() {
           keyFilterMode: false,
           keyFilters: createEmptyKeyFilterState(),
           columnProjectionMode: false,
-          columnProjections: createEmptyColumnProjectionState()
+          columnProjections: createEmptyColumnProjectionState(),
+          rowFilters: createEmptyRowFilterState(),
+          searchPruneMode: false,
+          unwinds: createEmptyUnwindState()
         })
       } catch (error: any) {
         console.error('Error loading file into tab:', filePath, error)
@@ -370,7 +388,7 @@ function App() {
   const handleSaveSelectionOptions = useCallback(async () => {
     const tab = tabsRef.current.find((t) => t.id === activeTabId)
     if (!tab || !tab.jsonData) return
-    if (!hasAnyActiveSelection(tab.keyFilters, tab.columnProjections)) return
+    if (!hasAnyPersistableSelection(tab.keyFilters, tab.columnProjections)) return
 
     const fileName = tab.filePath ? getFileNameFromPath(tab.filePath) : 'untitled.json'
     const defaultPath = `${fileName}.option`
@@ -411,6 +429,8 @@ function App() {
               ...t,
               keyFilters: result.keyFilters,
               columnProjections: result.columnProjections,
+              rowFilters: createEmptyRowFilterState(),
+              unwinds: createEmptyUnwindState(),
               searchResults: [],
               currentResultIndex: -1
             }
@@ -601,6 +621,16 @@ function App() {
     )
   }, [activeTabId])
 
+  const toggleSearchPruneMode = useCallback(() => {
+    if (!activeTabId) return
+    setTabs((prevTabs) =>
+      prevTabs.map((tab) => {
+        if (tab.id !== activeTabId) return tab
+        return { ...tab, searchPruneMode: !tab.searchPruneMode }
+      })
+    )
+  }, [activeTabId])
+
   const handleBeginColumnProjectionSelection = useCallback(
     (path: string, allColumns: ProjectionColumn[]) => {
       if (!activeTabId) return
@@ -697,6 +727,84 @@ function App() {
           return {
             ...tab,
             columnProjections: clearColumnProjection(tab.columnProjections, path),
+            searchResults: [],
+            currentResultIndex: -1
+          }
+        })
+      )
+    },
+    [activeTabId]
+  )
+
+  const handleSetRowFilter = useCallback(
+    (path: string, columnId: string, condition: RowFilterCondition) => {
+      if (!activeTabId) return
+      setTabs((prevTabs) =>
+        prevTabs.map((tab) => {
+          if (tab.id !== activeTabId) return tab
+          return {
+            ...tab,
+            rowFilters: setRowFilterCondition(tab.rowFilters, path, columnId, condition),
+            searchResults: [],
+            currentResultIndex: -1
+          }
+        })
+      )
+    },
+    [activeTabId]
+  )
+
+  const handleClearRowFilterColumn = useCallback(
+    (path: string, columnId: string) => {
+      if (!activeTabId) return
+      setTabs((prevTabs) =>
+        prevTabs.map((tab) => {
+          if (tab.id !== activeTabId) return tab
+          return {
+            ...tab,
+            rowFilters: clearRowFilterColumn(tab.rowFilters, path, columnId),
+            searchResults: [],
+            currentResultIndex: -1
+          }
+        })
+      )
+    },
+    [activeTabId]
+  )
+
+  const handleClearRowFilters = useCallback(
+    (path: string) => {
+      if (!activeTabId) return
+      setTabs((prevTabs) =>
+        prevTabs.map((tab) => {
+          if (tab.id !== activeTabId) return tab
+          return {
+            ...tab,
+            rowFilters: clearRowFilters(tab.rowFilters, path),
+            searchResults: [],
+            currentResultIndex: -1
+          }
+        })
+      )
+    },
+    [activeTabId]
+  )
+
+  const handleSetUnwind = useCallback(
+    (path: string, relativePath: string | null) => {
+      if (!activeTabId) return
+      setTabs((prevTabs) =>
+        prevTabs.map((tab) => {
+          if (tab.id !== activeTabId) return tab
+          const unwinds = { ...tab.unwinds }
+          if (relativePath) unwinds[path] = { relativePath }
+          else delete unwinds[path]
+          return {
+            ...tab,
+            unwinds,
+            keyFilters: clearAppliedKeyFilter(tab.keyFilters, path),
+            columnProjections: clearColumnProjection(tab.columnProjections, path),
+            rowFilters: clearRowFilters(tab.rowFilters, path),
             searchResults: [],
             currentResultIndex: -1
           }
@@ -887,7 +995,9 @@ function App() {
       activeTabData.jsonData,
       activeTabData.searchQuery,
       activeTabData.keyFilters,
-      activeTabData.columnProjections
+      activeTabData.columnProjections,
+      activeTabData.rowFilters,
+      activeTabData.unwinds
     )
     updateTabData(activeTabData.id, {
       searchResults: results,
@@ -1080,15 +1190,20 @@ function App() {
             onCancelKeyFilterSelection={handleCancelKeyFilterSelection}
             onClearKeyFilter={handleClearKeyFilter}
             onToggleColumnProjectionMode={toggleColumnProjectionMode}
+            onToggleSearchPruneMode={toggleSearchPruneMode}
             onBeginColumnProjectionSelection={handleBeginColumnProjectionSelection}
             onDraftColumnSelectedChange={handleDraftColumnSelectedChange}
             onDraftColumnProjectionQueryChange={handleDraftColumnProjectionQueryChange}
             onApplyColumnProjection={handleApplyColumnProjection}
             onCancelColumnProjectionSelection={handleCancelColumnProjectionSelection}
             onClearColumnProjection={handleClearColumnProjection}
+            onSetRowFilter={handleSetRowFilter}
+            onClearRowFilterColumn={handleClearRowFilterColumn}
+            onClearRowFilters={handleClearRowFilters}
+            onSetUnwind={handleSetUnwind}
             onPasteTab={handlePasteToNewTab}
             onSaveSelectionOptions={handleSaveSelectionOptions}
-            hasActiveSelection={hasAnyActiveSelection(
+            hasActiveSelection={hasAnyPersistableSelection(
               activeTabData?.keyFilters ?? createEmptyKeyFilterState(),
               activeTabData?.columnProjections ?? createEmptyColumnProjectionState()
             )}

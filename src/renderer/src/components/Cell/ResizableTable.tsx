@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react'
 
 interface Header {
   header: string
+  id?: string
   resize: boolean
   thClass: string
 }
@@ -11,7 +12,7 @@ interface ResizableTableProps {
   tblClass: string
   theadClass?: string
   trClass: string
-  headerRenderer?: (header: string) => React.ReactNode
+  headerRenderer?: (header: string, id?: string) => React.ReactNode
   tbodyRef?: React.Ref<HTMLTableSectionElement>
   children: React.ReactNode
 }
@@ -73,27 +74,30 @@ const ResizableTable: React.FC<ResizableTableProps> = ({
       {headers.length > 0 && (
         <thead className={theadClass}>
           <tr className={trClass}>
-            {headers.map(({ header, resize, thClass }) => (
+            {headers.map(({ header, id, resize, thClass }) => {
+              const headerId = id ?? header
+              return (
               <th
-                key={header}
+                key={headerId}
                 className={thClass}
                 style={{
-                  minWidth: colWidth[header] || undefined,
-                  width: colWidth[header] || undefined
+                  minWidth: colWidth[headerId] || undefined,
+                  width: colWidth[headerId] || undefined
                 }}
-                data-header={header}
+                data-header={headerId}
               >
-                {headerRenderer ? headerRenderer(header) : header}
+                {headerRenderer ? headerRenderer(header, headerId) : header}
                 {resize !== false && (
                   <div
                     className="resizer"
                     style={{ height: tableHeight }}
-                    onMouseDown={(e) => resizeCol(header, e)}
-                    onDoubleClick={() => resetColSize(header)}
+                    onMouseDown={(e) => resizeCol(headerId, e)}
+                    onDoubleClick={() => resetColSize(headerId)}
                   ></div>
                 )}
               </th>
-            ))}
+              )
+            })}
           </tr>
         </thead>
       )}

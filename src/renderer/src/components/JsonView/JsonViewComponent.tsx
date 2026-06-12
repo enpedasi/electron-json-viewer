@@ -13,6 +13,8 @@ import {
 } from '../Cell/columnProjection'
 import { Translator } from '../../i18n'
 import { collectSearchAncestorPaths } from './searchJson'
+import { buildPrunePathSets } from './searchPrune'
+import { RowFilterCondition } from '../Cell/rowFilter'
 
 interface JsonViewProps {
   tabData: TabState
@@ -43,12 +45,17 @@ interface JsonViewProps {
   onCancelKeyFilterSelection?: (path: string) => void
   onClearKeyFilter?: (path: string) => void
   onToggleColumnProjectionMode?: () => void
+  onToggleSearchPruneMode?: () => void
   onBeginColumnProjectionSelection?: (path: string, allColumns: ProjectionColumn[]) => void
   onDraftColumnSelectedChange?: (path: string, columnPath: string, selected: boolean) => void
   onDraftColumnProjectionQueryChange?: (path: string, query: string) => void
   onApplyColumnProjection?: (path: string, allColumns: ProjectionColumn[]) => void
   onCancelColumnProjectionSelection?: (path: string) => void
   onClearColumnProjection?: (path: string) => void
+  onSetRowFilter?: (path: string, columnId: string, condition: RowFilterCondition) => void
+  onClearRowFilterColumn?: (path: string, columnId: string) => void
+  onClearRowFilters?: (path: string) => void
+  onSetUnwind?: (path: string, relativePath: string | null) => void
   onPasteTab?: () => void
   onSaveSelectionOptions?: () => void
   hasActiveSelection?: boolean
@@ -84,12 +91,17 @@ const JsonViewComponent: React.FC<JsonViewProps> = ({
   onCancelKeyFilterSelection,
   onClearKeyFilter,
   onToggleColumnProjectionMode,
+  onToggleSearchPruneMode,
   onBeginColumnProjectionSelection,
   onDraftColumnSelectedChange,
   onDraftColumnProjectionQueryChange,
   onApplyColumnProjection,
   onCancelColumnProjectionSelection,
   onClearColumnProjection,
+  onSetRowFilter,
+  onClearRowFilterColumn,
+  onClearRowFilters,
+  onSetUnwind,
   onPasteTab,
   onSaveSelectionOptions,
   hasActiveSelection,
@@ -106,6 +118,11 @@ const JsonViewComponent: React.FC<JsonViewProps> = ({
   const autoExpandPaths = useMemo(
     () => collectSearchAncestorPaths(tabData.searchResults),
     [tabData.searchResults]
+  )
+
+  const prunePaths = useMemo(
+    () => (tabData.searchPruneMode ? buildPrunePathSets(tabData.searchResults) : null),
+    [tabData.searchPruneMode, tabData.searchResults]
   )
 
   const manageHighlightAndScroll = useCallback(() => {
@@ -350,6 +367,17 @@ const JsonViewComponent: React.FC<JsonViewProps> = ({
                   ? `${tabData.currentResultIndex + 1}/${tabData.searchResults.length}`
                   : ''}
               </button>
+              <button
+                className={`search-nav-btn search-prune-btn ${tabData.searchPruneMode ? 'active' : ''}`}
+                onClick={onToggleSearchPruneMode}
+                disabled={tabData.searchResults.length === 0}
+                title={t('json.pruneMode')}
+                aria-label={t('json.pruneMode')}
+              >
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+                  <path d="M1 2h14L10 8.5V14l-4-2V8.5L1 2z" />
+                </svg>
+              </button>
               <button className="search-close-btn" onClick={handleCloseSearch} title={t('json.close')}>
                 <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
                   <path d="M6 4.6L1.7.3.3 1.7 4.6 6 .3 10.3l1.4 1.4L6 7.4l4.3 4.3 1.4-1.4L7.4 6l4.3-4.3L10.3.3z" />
@@ -417,9 +445,13 @@ const JsonViewComponent: React.FC<JsonViewProps> = ({
                 isEditMode={isEditMode}
                 onDataChange={onDataChange}
                 onDelete={onDelete}
+                onAddProperty={onAddProperty}
+                onAddItem={onAddArrayItem}
+                onRenameKey={onRenameKey}
                 onExpandedChange={onExpandedChange}
                 expandedPaths={expandedPathsSet}
                 autoExpandPaths={autoExpandPaths}
+                prunePaths={prunePaths}
                 keyFilterMode={tabData.keyFilterMode}
                 keyFilters={tabData.keyFilters}
                 onBeginKeyFilterSelection={onBeginKeyFilterSelection}
@@ -430,6 +462,12 @@ const JsonViewComponent: React.FC<JsonViewProps> = ({
                 onClearKeyFilter={onClearKeyFilter}
                 columnProjectionMode={tabData.columnProjectionMode}
                 columnProjections={tabData.columnProjections}
+                rowFilters={tabData.rowFilters}
+                onSetRowFilter={onSetRowFilter}
+                onClearRowFilterColumn={onClearRowFilterColumn}
+                onClearRowFilters={onClearRowFilters}
+                unwinds={tabData.unwinds}
+                onSetUnwind={onSetUnwind}
                 onBeginColumnProjectionSelection={onBeginColumnProjectionSelection}
                 onDraftColumnSelectedChange={onDraftColumnSelectedChange}
                 onDraftColumnProjectionQueryChange={onDraftColumnProjectionQueryChange}

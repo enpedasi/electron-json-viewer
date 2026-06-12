@@ -44,6 +44,14 @@ export function buildTsvFromColumns(
   return rows.join('\n')
 }
 
+export function buildTsvFromResolvedRows(headers: string[], rows: unknown[][]): string {
+  const lines: string[] = [headers.join('\t')]
+  for (const row of rows) {
+    lines.push(row.map(normalizeTsvCell).join('\t'))
+  }
+  return lines.join('\n')
+}
+
 function isObjectRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }

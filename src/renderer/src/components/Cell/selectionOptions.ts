@@ -26,8 +26,11 @@ export function buildSelectionOptionsDto(
 
   const columnProjectionsDto: Record<string, string[]> = {}
   for (const [path, state] of Object.entries(columnProjections)) {
-    if (state.appliedColumns.length > 0) {
-      columnProjectionsDto[path] = state.appliedColumns.map((col) => col.path)
+    const persistedColumnPaths = state.appliedColumns
+      .map((col) => col.path)
+      .filter((columnPath) => !columnPath.includes('[]'))
+    if (persistedColumnPaths.length > 0) {
+      columnProjectionsDto[path] = persistedColumnPaths
     }
   }
 
@@ -151,6 +154,18 @@ export function hasAnyActiveSelection(
   return (
     Object.values(keyFilters).some((s) => s.appliedKeys.length > 0) ||
     Object.values(columnProjections).some((s) => s.appliedColumns.length > 0)
+  )
+}
+
+export function hasAnyPersistableSelection(
+  keyFilters: KeyFilterState,
+  columnProjections: ColumnProjectionState
+): boolean {
+  return (
+    Object.values(keyFilters).some((s) => s.appliedKeys.length > 0) ||
+    Object.values(columnProjections).some((s) =>
+      s.appliedColumns.some((column) => !column.path.includes('[]'))
+    )
   )
 }
 

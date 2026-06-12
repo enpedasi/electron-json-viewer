@@ -24,7 +24,7 @@ esbuild.buildSync({
   external: []
 })
 
-const { buildTsvFromColumns } = require(tmpFile)
+const { buildTsvFromColumns, buildTsvFromResolvedRows } = require(tmpFile)
 
 fs.unlinkSync(tmpFile)
 
@@ -102,5 +102,18 @@ const projLines = projTsv.split('\n')
 assert.strictEqual(projLines[0], 'x\ty')
 assert.strictEqual(projLines[1], '10\t20')
 assert.strictEqual(projLines[2], '30\t40')
+
+console.log('Test: TSV from resolved rows')
+const resolvedTsv = buildTsvFromResolvedRows(
+  ['name', 'meta', 'empty'],
+  [
+    ['Alice', { score: 10 }, null],
+    ['Bob\tB', [1, 2], undefined]
+  ]
+)
+const resolvedLines = resolvedTsv.split('\n')
+assert.strictEqual(resolvedLines[0], 'name\tmeta\tempty')
+assert.strictEqual(resolvedLines[1], 'Alice\t{"score":10}\t')
+assert.strictEqual(resolvedLines[2], 'Bob B\t[1,2]\t')
 
 console.log('\nAll table-tsv tests passed!')

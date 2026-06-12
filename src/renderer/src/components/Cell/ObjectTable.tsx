@@ -4,6 +4,9 @@ import Cell from './Cell'
 import { KeyFilterState } from './keyFilter'
 import { highlightText } from './highlightText'
 import { ColumnProjectionState, ProjectionColumn } from './columnProjection'
+import { RowFilterCondition, RowFilterState } from './rowFilter'
+import { UnwindState } from './unwind'
+import { PrunePathSets, isPathVisibleInPrune } from '../JsonView/searchPrune'
 import { Translator } from '../../i18n'
 
 const EMPTY_PATH_SET: ReadonlySet<string> = new Set()
@@ -20,10 +23,12 @@ interface ObjectTableProps {
   onDataChange?: (path: string, newValue: any) => void
   onDelete?: (path: string) => void
   onAddProperty?: (path: string, key: string, value: any) => void
+  onAddItem?: (path: string, value: any) => void
   onRenameKey?: (path: string, oldKey: string, newKey: string) => void
   onExpandedChange?: (path: string, expanded: boolean) => void
   expandedPaths?: ReadonlySet<string> | string[]
   autoExpandPaths?: ReadonlySet<string>
+  prunePaths?: PrunePathSets | null
   keyFilterMode?: boolean
   keyFilters?: KeyFilterState
   onBeginKeyFilterSelection?: (path: string, allKeys: string[]) => void
@@ -40,6 +45,12 @@ interface ObjectTableProps {
   onApplyColumnProjection?: (path: string, allColumns: ProjectionColumn[]) => void
   onCancelColumnProjectionSelection?: (path: string) => void
   onClearColumnProjection?: (path: string) => void
+  rowFilters?: RowFilterState
+  onSetRowFilter?: (path: string, columnId: string, condition: RowFilterCondition) => void
+  onClearRowFilterColumn?: (path: string, columnId: string) => void
+  onClearRowFilters?: (path: string) => void
+  unwinds?: UnwindState
+  onSetUnwind?: (path: string, relativePath: string | null) => void
   onSaveSelectionOptions?: () => void
   hasActiveSelection?: boolean
   t: Translator
@@ -62,10 +73,12 @@ const ObjectTable: React.FC<ObjectTableProps> = ({
   onDataChange,
   onDelete,
   onAddProperty,
+  onAddItem,
   onRenameKey,
   onExpandedChange,
   expandedPaths = EMPTY_PATH_SET,
   autoExpandPaths = EMPTY_PATH_SET,
+  prunePaths = null,
   keyFilterMode = false,
   keyFilters = {},
   onBeginKeyFilterSelection,
@@ -82,6 +95,12 @@ const ObjectTable: React.FC<ObjectTableProps> = ({
   onApplyColumnProjection,
   onCancelColumnProjectionSelection,
   onClearColumnProjection,
+  rowFilters = {},
+  onSetRowFilter,
+  onClearRowFilterColumn,
+  onClearRowFilters,
+  unwinds = {},
+  onSetUnwind,
   onSaveSelectionOptions,
   hasActiveSelection = false,
   t
@@ -101,6 +120,11 @@ const ObjectTable: React.FC<ObjectTableProps> = ({
   const [addingNew, setAddingNew] = useState(false)
   const [editingKey, setEditingKey] = useState<string | null>(null)
   const [editingKeyValue, setEditingKeyValue] = useState('')
+  const visibleMemberEntries = useMemo(() => {
+    const entries = Object.entries(member)
+    if (!prunePaths) return entries
+    return entries.filter(([key]) => isPathVisibleInPrune(prunePaths, `${path}.${key}`))
+  }, [member, path, prunePaths])
 
   const handleAddProperty = useCallback(() => {
     if (!newKeyName.trim()) return
@@ -132,7 +156,7 @@ const ObjectTable: React.FC<ObjectTableProps> = ({
       trClass="object-hdr"
       headerRenderer={() => null}
     >
-      {Object.entries(member).map(([key, val]) => (
+      {visibleMemberEntries.map(([key, val]) => (
         <tr key={key} className="object member">
           <th
             className={`object key ${
@@ -177,9 +201,13 @@ const ObjectTable: React.FC<ObjectTableProps> = ({
               isEditMode={isEditMode}
               onDataChange={onDataChange}
               onDelete={onDelete}
+              onAddProperty={onAddProperty}
+              onAddItem={onAddItem}
+              onRenameKey={onRenameKey}
               onExpandedChange={onExpandedChange}
               expandedPaths={expandedPaths}
               autoExpandPaths={autoExpandPaths}
+              prunePaths={prunePaths}
               keyFilterMode={keyFilterMode}
               keyFilters={keyFilters}
               onBeginKeyFilterSelection={onBeginKeyFilterSelection}
@@ -196,6 +224,12 @@ const ObjectTable: React.FC<ObjectTableProps> = ({
               onApplyColumnProjection={onApplyColumnProjection}
               onCancelColumnProjectionSelection={onCancelColumnProjectionSelection}
               onClearColumnProjection={onClearColumnProjection}
+              rowFilters={rowFilters}
+              onSetRowFilter={onSetRowFilter}
+              onClearRowFilterColumn={onClearRowFilterColumn}
+              onClearRowFilters={onClearRowFilters}
+              unwinds={unwinds}
+              onSetUnwind={onSetUnwind}
               onSaveSelectionOptions={onSaveSelectionOptions}
               hasActiveSelection={hasActiveSelection}
               t={t}

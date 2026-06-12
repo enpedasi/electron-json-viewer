@@ -30,6 +30,7 @@ const {
   parseSelectionOptions,
   applySelectionOptionsToData,
   hasAnyActiveSelection,
+  hasAnyPersistableSelection,
   isOptionFilePath
 } = require(tmpFile)
 
@@ -69,6 +70,34 @@ assert.strictEqual(hasAnyActiveSelection(activeKeyFilters, emptyColumnProjection
 console.log('Test: hasAnyActiveSelection returns true for active columnProjections')
 assert.strictEqual(hasAnyActiveSelection(emptyKeyFilters, activeColumnProjections), true)
 
+console.log('Test: hasAnyPersistableSelection ignores only unwind child columns')
+const unwindOnlyColumnProjections = {
+  '.orders': {
+    isSelecting: false,
+    appliedColumns: [
+      { path: 'items[].sku', label: 'sku', groupPath: 'items[]' },
+      { path: 'items[].qty', label: 'qty', groupPath: 'items[]' }
+    ],
+    draftColumnPaths: ['items[].sku', 'items[].qty'],
+    draftQuery: ''
+  }
+}
+const mixedUnwindColumnProjections = {
+  '.orders': {
+    isSelecting: false,
+    appliedColumns: [
+      { path: 'id', label: 'id', groupPath: '' },
+      { path: 'items[].sku', label: 'sku', groupPath: 'items[]' }
+    ],
+    draftColumnPaths: ['id', 'items[].sku'],
+    draftQuery: ''
+  }
+}
+assert.strictEqual(hasAnyPersistableSelection(emptyKeyFilters, activeColumnProjections), true)
+assert.strictEqual(hasAnyPersistableSelection(emptyKeyFilters, unwindOnlyColumnProjections), false)
+assert.strictEqual(hasAnyPersistableSelection(emptyKeyFilters, mixedUnwindColumnProjections), true)
+assert.strictEqual(hasAnyPersistableSelection(activeKeyFilters, unwindOnlyColumnProjections), true)
+
 console.log('Test: buildSelectionOptionsDto includes only applied data')
 const dto = buildSelectionOptionsDto('sample.json', activeKeyFilters, activeColumnProjections)
 assert.strictEqual(dto.type, 'json-grid-viewer-selection-options')
@@ -95,6 +124,20 @@ const draftState = {
 }
 const draftDto = buildSelectionOptionsDto('test.json', draftState, emptyColumnProjections)
 assert.deepStrictEqual(draftDto.keyFilters, { '.items': ['a', 'b'] })
+
+console.log('Test: buildSelectionOptionsDto excludes unwind child column ids')
+const unwindColumnDto = buildSelectionOptionsDto('test.json', emptyKeyFilters, {
+  '.orders': {
+    isSelecting: false,
+    appliedColumns: [
+      { path: 'id', label: 'id', groupPath: '' },
+      { path: 'items[].sku', label: 'sku', groupPath: 'items[]' }
+    ],
+    draftColumnPaths: ['id', 'items[].sku'],
+    draftQuery: ''
+  }
+})
+assert.deepStrictEqual(unwindColumnDto.columnProjections, { '.orders': ['id'] })
 
 console.log('Test: serializeSelectionOptions produces valid JSON')
 const json = serializeSelectionOptions(dto)

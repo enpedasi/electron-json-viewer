@@ -11,11 +11,32 @@ import {
   ColumnProjectionState,
   ProjectionColumn,
   collectArrayLeafColumns,
+  getValueByRelativePath,
   getAppliedProjectionColumns,
   hasActiveColumnProjection
 } from './columnProjection'
-import { buildTsvFromColumns } from './tableTsv'
+import { buildTsvFromColumns, buildTsvFromResolvedRows } from './tableTsv'
 import { highlightText, escapeRegExp } from './highlightText'
+import { RowEntry, buildPlainRowEntries } from './rowEntries'
+import {
+  RowFilterCondition,
+  RowFilterState,
+  collectDistinctColumnValues,
+  hasActiveRowFilter,
+  isConditionActive,
+  rowMatchesFilters
+} from './rowFilter'
+import RowFilterPopover from './RowFilterPopover'
+import {
+  UnwindState,
+  buildUnwoundRowEntries,
+  collectUnwindCandidates,
+  collectUnwoundColumns,
+  getChildRelativePath,
+  getUnwindChildIndexForPath,
+  resolveUnwoundValue
+} from './unwind'
+import { PrunePathSets, isPathVisibleInPrune } from '../JsonView/searchPrune'
 import { Translator } from '../../i18n'
 
 const ESTIMATED_ROW_HEIGHT = 28
@@ -36,10 +57,13 @@ interface Props {
   isEditMode?: boolean
   onDataChange?: (path: string, newValue: any) => void
   onDelete?: (path: string) => void
+  onAddProperty?: (path: string, key: string, value: any) => void
   onAddItem?: (path: string, value: any) => void
+  onRenameKey?: (path: string, oldKey: string, newKey: string) => void
   onExpandedChange?: (path: string, expanded: boolean) => void
   expandedPaths?: ReadonlySet<string> | string[]
   autoExpandPaths?: ReadonlySet<string>
+  prunePaths?: PrunePathSets | null
   keyFilterMode?: boolean
   keyFilters?: KeyFilterState
   onBeginKeyFilterSelection?: (path: string, allKeys: string[]) => void
@@ -56,6 +80,12 @@ interface Props {
   onApplyColumnProjection?: (path: string, allColumns: ProjectionColumn[]) => void
   onCancelColumnProjectionSelection?: (path: string) => void
   onClearColumnProjection?: (path: string) => void
+  rowFilters?: RowFilterState
+  onSetRowFilter?: (path: string, columnId: string, condition: RowFilterCondition) => void
+  onClearRowFilterColumn?: (path: string, columnId: string) => void
+  onClearRowFilters?: (path: string) => void
+  unwinds?: UnwindState
+  onSetUnwind?: (path: string, relativePath: string | null) => void
   onSaveSelectionOptions?: () => void
   hasActiveSelection?: boolean
   t: Translator
@@ -72,10 +102,13 @@ const ArrayTable: React.FC<Props> = ({
   isEditMode = false,
   onDataChange,
   onDelete,
+  onAddProperty,
   onAddItem,
+  onRenameKey,
   onExpandedChange,
   expandedPaths = EMPTY_PATH_SET,
   autoExpandPaths = EMPTY_PATH_SET,
+  prunePaths = null,
   keyFilterMode = false,
   keyFilters = {},
   onBeginKeyFilterSelection,
@@ -92,6 +125,12 @@ const ArrayTable: React.FC<Props> = ({
   onApplyColumnProjection,
   onCancelColumnProjectionSelection,
   onClearColumnProjection,
+  rowFilters = {},
+  onSetRowFilter,
+  onClearRowFilterColumn,
+  onClearRowFilters,
+  unwinds = {},
+  onSetUnwind,
   onSaveSelectionOptions,
   hasActiveSelection = false,
   t
@@ -110,12 +149,54 @@ const ArrayTable: React.FC<Props> = ({
     viewportHeight: VIRTUAL_VIEWPORT_FALLBACK_HEIGHT
   })
   const virtualRangeRef = React.useRef({ startIndex: 0, endIndex: 0 })
+  const [openFilterColumnId, setOpenFilterColumnId] = React.useState<string | null>(null)
+  const [rowFilterPopoverPosition, setRowFilterPopoverPosition] = React.useState<{
+    left: number
+    top: number
+  } | null>(null)
+
+  const allKeys = React.useMemo(() => collectObjectArrayKeys(array), [array])
+  const unwindState = unwinds[path]
+  const [unwindCandidates, setUnwindCandidates] = React.useState<string[] | null>(null)
+  React.useEffect(() => setUnwindCandidates(null), [array])
+  const ensureUnwindCandidates = React.useCallback(() => {
+    if (unwindCandidates !== null || allKeys.length === 0) return
+    setUnwindCandidates(collectUnwindCandidates(array))
+  }, [allKeys.length, array, unwindCandidates])
+  const showUnwindSelect =
+    Boolean(unwindState) ||
+    (unwindCandidates === null ? allKeys.length > 0 : unwindCandidates.length > 0)
+  const rowEntries = React.useMemo(
+    () =>
+      unwindState
+        ? buildUnwoundRowEntries(array, path, unwindState.relativePath)
+        : buildPlainRowEntries(array, path),
+    [array, path, unwindState]
+  )
+  const rowFilterConditions = rowFilters[path]
+  const rowFilterActive = hasActiveRowFilter(rowFilters, path)
+  const visibleEntries = React.useMemo(() => {
+    let entries: RowEntry[] = rowEntries
+    if (rowFilterActive) {
+      entries = entries.filter((entry) =>
+        rowMatchesFilters(entry.element, rowFilterConditions, (_element, columnId) =>
+          unwindState
+            ? resolveUnwoundValue(entry.element, entry.child, columnId, unwindState.relativePath)
+            : getValueByRelativePath(entry.element, columnId)
+        )
+      )
+    }
+    if (prunePaths) {
+      entries = entries.filter((entry) => isPathVisibleInPrune(prunePaths, entry.rowPath))
+    }
+    return entries
+  }, [prunePaths, rowEntries, rowFilterActive, rowFilterConditions, unwindState])
 
   React.useEffect(() => {
     rowHeightsRef.current.clear()
     rowRefCallbacksRef.current.clear()
     setMeasurementVersion((version) => version + 1)
-  }, [array])
+  }, [visibleEntries])
 
   React.useEffect(() => {
     return () => {
@@ -148,7 +229,7 @@ const ArrayTable: React.FC<Props> = ({
 
   React.useLayoutEffect(() => {
     updateVirtualViewport()
-  }, [array.length, updateVirtualViewport])
+  }, [visibleEntries.length, updateVirtualViewport])
 
   React.useEffect(() => {
     const scrollParent = getScrollParent(tableWrapperRef.current)
@@ -174,7 +255,7 @@ const ArrayTable: React.FC<Props> = ({
       resizeObserver.disconnect()
       if (frameId) window.cancelAnimationFrame(frameId)
     }
-  }, [array.length, updateVirtualViewport])
+  }, [visibleEntries.length, updateVirtualViewport])
 
   const updateRowMeasurement = React.useCallback(
     (index: number, height: number) => {
@@ -247,7 +328,6 @@ const ArrayTable: React.FC<Props> = ({
     [updateRowMeasurement]
   )
 
-  const allKeys = React.useMemo(() => collectObjectArrayKeys(array), [array])
   const filterState = keyFilters[path]
   const activeFilter = hasActiveKeyFilter(keyFilters, path)
   const visibleKeys = React.useMemo(
@@ -258,17 +338,40 @@ const ArrayTable: React.FC<Props> = ({
   const projectionState = columnProjections[path]
   const activeProjection = hasActiveColumnProjection(columnProjections, path)
   const needsProjectionColumns =
-    columnProjectionMode || activeProjection || (projectionState?.isSelecting ?? false)
+    Boolean(unwindState) ||
+    columnProjectionMode ||
+    activeProjection ||
+    (projectionState?.isSelecting ?? false)
   const projectionColumns = React.useMemo(
-    () => (needsProjectionColumns ? collectArrayLeafColumns(array) : []),
-    [array, needsProjectionColumns]
+    () =>
+      unwindState
+        ? collectUnwoundColumns(array, unwindState.relativePath)
+        : needsProjectionColumns
+          ? collectArrayLeafColumns(array)
+          : [],
+    [array, needsProjectionColumns, unwindState]
   )
   const appliedProjectionColumns = getAppliedProjectionColumns(columnProjections, path)
 
   const dataColumns = React.useMemo(() => {
+    if (unwindState) {
+      const base = activeProjection ? appliedProjectionColumns : projectionColumns
+      return base.map((column) => ({
+        header: column.label,
+        id: column.path,
+        valuePath: column.path,
+        resize: true,
+        thClass: `array member unwound-column ${
+          getChildRelativePath(column.path, unwindState.relativePath) !== null
+            ? 'unwound-child-column'
+            : ''
+        }`
+      }))
+    }
     if (activeProjection) {
       return appliedProjectionColumns.map((column) => ({
         header: column.label,
+        id: column.path,
         valuePath: column.path,
         resize: true,
         thClass: 'array member projected-column'
@@ -276,22 +379,38 @@ const ArrayTable: React.FC<Props> = ({
     }
     return visibleKeys.map((header) => ({
       header,
+      id: header,
       resize: true,
       thClass: `array member ${activeFilter ? 'filtered-column' : ''}`
     }))
-  }, [activeProjection, appliedProjectionColumns, visibleKeys, activeFilter])
+  }, [
+    activeProjection,
+    appliedProjectionColumns,
+    visibleKeys,
+    activeFilter,
+    projectionColumns,
+    unwindState
+  ])
 
   const headers = React.useMemo(() => {
-    const base = [{ header: '', resize: false, thClass: 'index' }, ...dataColumns]
-    if (isEditMode) {
-      return [...base, { header: '__edit_actions__', resize: false, thClass: 'edit-actions' }]
+    const base = [{ header: '', id: '__index__', resize: false, thClass: 'index' }, ...dataColumns]
+    if (isEditMode && !unwindState) {
+      return [
+        ...base,
+        {
+          header: '__edit_actions__',
+          id: '__edit_actions__',
+          resize: false,
+          thClass: 'edit-actions'
+        }
+      ]
     }
     return base
-  }, [dataColumns, isEditMode])
+  }, [dataColumns, isEditMode, unwindState])
 
   const didAutoBegin = React.useRef(false)
   React.useEffect(() => {
-    if (!keyFilterMode) {
+    if (!keyFilterMode || unwindState) {
       didAutoBegin.current = false
       return
     }
@@ -300,7 +419,7 @@ const ArrayTable: React.FC<Props> = ({
     if (didAutoBegin.current) return
     didAutoBegin.current = true
     onBeginKeyFilterSelection?.(path, allKeys)
-  }, [keyFilterMode, allKeys, filterState?.isSelecting, onBeginKeyFilterSelection, path])
+  }, [keyFilterMode, unwindState, allKeys, filterState?.isSelecting, onBeginKeyFilterSelection, path])
 
   const didAutoBeginProjection = React.useRef(false)
   const projectionFocusIndex = React.useRef(-1)
@@ -415,9 +534,58 @@ const ArrayTable: React.FC<Props> = ({
     [filteredProjectionColumns, projectionDraftPathSet, onDraftColumnSelectedChange, path]
   )
 
-  const headerRenderer = (header: string) => {
-    if (header === '__edit_actions__') return null
-    return <span>{highlightText(header, searchQuery || '')}</span>
+  const getRowFilterPopoverPosition = React.useCallback((trigger: HTMLElement) => {
+    const wrapper = tableWrapperRef.current
+    if (!wrapper) return { left: 0, top: 0 }
+
+    const wrapperRect = wrapper.getBoundingClientRect()
+    const triggerRect = trigger.getBoundingClientRect()
+    return {
+      left: Math.max(0, triggerRect.left - wrapperRect.left - 8),
+      top: Math.max(0, triggerRect.bottom - wrapperRect.top + 4)
+    }
+  }, [])
+
+  const closeRowFilterPopover = React.useCallback(() => {
+    setOpenFilterColumnId(null)
+    setRowFilterPopoverPosition(null)
+  }, [])
+
+  const handleColumnFilterToggle = React.useCallback(
+    (columnId: string, trigger: HTMLElement) => {
+      if (openFilterColumnId === columnId) {
+        closeRowFilterPopover()
+        return
+      }
+      setRowFilterPopoverPosition(getRowFilterPopoverPosition(trigger))
+      setOpenFilterColumnId(columnId)
+    },
+    [closeRowFilterPopover, getRowFilterPopoverPosition, openFilterColumnId]
+  )
+
+  const headerRenderer = (header: string, id?: string) => {
+    if (id === '__edit_actions__') return null
+    const isDataColumn = Boolean(id && id !== '__index__' && id !== '__edit_actions__')
+    if (!isDataColumn) return <span>{highlightText(header, searchQuery || '')}</span>
+    const columnActive = isConditionActive(rowFilterConditions?.[id!])
+    return (
+      <span className="array-col-header">
+        <span>{highlightText(header, searchQuery || '')}</span>
+        <button
+          className={`col-filter-btn ${columnActive ? 'active' : ''}`}
+          onClick={(event) => {
+            event.stopPropagation()
+            handleColumnFilterToggle(id!, event.currentTarget)
+          }}
+          title={t('table.rowFilter')}
+          aria-label={t('table.rowFilter')}
+        >
+          <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M1 2h14L10 8.5V14l-4-2V8.5L1 2z" />
+          </svg>
+        </button>
+      </span>
+    )
   }
 
   const draftKeys = filterState?.draftKeys ?? allKeys
@@ -429,6 +597,14 @@ const ArrayTable: React.FC<Props> = ({
     : allKeys
   const canApplyFilter = draftKeys.length > 0
   const hiddenCount = allKeys.length - visibleKeys.length
+  const openColumnDistinct = React.useMemo(() => {
+    if (!openFilterColumnId) return null
+    if (!unwindState) return collectDistinctColumnValues(array, openFilterColumnId)
+    return collectDistinctColumnValues(rowEntries, openFilterColumnId, undefined, undefined, (rowEntry, columnId) => {
+      const entry = rowEntry as RowEntry
+      return resolveUnwoundValue(entry.element, entry.child, columnId, unwindState.relativePath)
+    })
+  }, [array, openFilterColumnId, rowEntries, unwindState])
 
   const handleTsvCopy = React.useCallback(() => {
     if (dataColumns.length === 0) return
@@ -438,12 +614,29 @@ const ArrayTable: React.FC<Props> = ({
       valuePath: col.valuePath
     }))
 
-    const tsv = buildTsvFromColumns(array, tsvColumns)
+    const tsv = unwindState
+      ? buildTsvFromResolvedRows(
+          dataColumns.map((column) => column.header),
+          visibleEntries.map((entry) =>
+            dataColumns.map((column) =>
+              resolveUnwoundValue(
+                entry.element,
+                entry.child,
+                column.valuePath ?? column.header,
+                unwindState.relativePath
+              )
+            )
+          )
+        )
+      : buildTsvFromColumns(
+          visibleEntries.map((entry) => entry.element),
+          tsvColumns
+        )
 
     navigator.clipboard.writeText(tsv).catch((err) => {
       console.error('Failed to copy TSV:', err)
     })
-  }, [dataColumns, array, activeProjection, appliedProjectionColumns])
+  }, [dataColumns, unwindState, visibleEntries])
 
   const [tsvCopied, setTsvCopied] = React.useState(false)
 
@@ -453,13 +646,43 @@ const ArrayTable: React.FC<Props> = ({
     window.setTimeout(() => setTsvCopied(false), 1500)
   }, [handleTsvCopy])
 
+  const sourceIndexToEntryIndex = React.useMemo(() => {
+    const map = new Map<number, number>()
+    visibleEntries.forEach((entry, entryIndex) => {
+      if (!map.has(entry.sourceIndex)) map.set(entry.sourceIndex, entryIndex)
+    })
+    return map
+  }, [visibleEntries])
+  const entryKeyToEntryIndex = React.useMemo(() => {
+    const map = new Map<string, number>()
+    visibleEntries.forEach((entry, entryIndex) => {
+      map.set(entry.key, entryIndex)
+    })
+    return map
+  }, [visibleEntries])
+
   const focusedSearchRowIndex = React.useMemo(() => {
     const currentPath =
       currentResultIndex !== undefined && currentResultIndex >= 0
         ? searchResults?.[currentResultIndex]?.path
         : undefined
-    return getArrayItemIndexForPath(path, currentPath)
-  }, [currentResultIndex, path, searchResults])
+    const sourceIndex = getArrayItemIndexForPath(path, currentPath)
+    if (sourceIndex === null) return null
+    if (unwindState) {
+      const childIndex = getUnwindChildIndexForPath(path, currentPath, unwindState.relativePath)
+      if (childIndex !== null) {
+        return entryKeyToEntryIndex.get(`${sourceIndex}:${childIndex}`) ?? null
+      }
+    }
+    return sourceIndexToEntryIndex.get(sourceIndex) ?? null
+  }, [
+    currentResultIndex,
+    entryKeyToEntryIndex,
+    path,
+    searchResults,
+    sourceIndexToEntryIndex,
+    unwindState
+  ])
 
   const measurementIndex = React.useMemo(() => {
     const entries = [...rowHeightsRef.current.entries()].sort((a, b) => a[0] - b[0])
@@ -496,10 +719,10 @@ const ArrayTable: React.FC<Props> = ({
 
   const findIndexForOffset = React.useCallback(
     (offset: number) => {
-      if (array.length === 0) return 0
+      if (visibleEntries.length === 0) return 0
 
       let low = 0
-      let high = array.length - 1
+      let high = visibleEntries.length - 1
       while (low < high) {
         const mid = Math.floor((low + high) / 2)
         if (getOffsetForIndex(mid + 1) < offset) {
@@ -510,11 +733,11 @@ const ArrayTable: React.FC<Props> = ({
       }
       return low
     },
-    [array.length, getOffsetForIndex]
+    [getOffsetForIndex, visibleEntries.length]
   )
 
   const virtualRange = React.useMemo(() => {
-    if (array.length === 0) {
+    if (visibleEntries.length === 0) {
       return {
         startIndex: 0,
         endIndex: 0,
@@ -529,7 +752,7 @@ const ArrayTable: React.FC<Props> = ({
       findIndexForOffset(virtualViewport.scrollOffset) - VIRTUAL_OVERSCAN_ROWS
     )
     let endIndex = Math.min(
-      array.length,
+      visibleEntries.length,
       findIndexForOffset(virtualViewport.scrollOffset + viewportHeight) + VIRTUAL_OVERSCAN_ROWS + 1
     )
 
@@ -538,12 +761,15 @@ const ArrayTable: React.FC<Props> = ({
       (focusedSearchRowIndex < startIndex || focusedSearchRowIndex >= endIndex)
     ) {
       startIndex = Math.max(0, focusedSearchRowIndex - VIRTUAL_OVERSCAN_ROWS)
-      endIndex = Math.min(array.length, focusedSearchRowIndex + VIRTUAL_OVERSCAN_ROWS + 1)
+      endIndex = Math.min(visibleEntries.length, focusedSearchRowIndex + VIRTUAL_OVERSCAN_ROWS + 1)
     }
 
     const topSpacer = getOffsetForIndex(startIndex)
     const visibleHeight = getOffsetForIndex(endIndex) - topSpacer
-    const bottomSpacer = Math.max(0, getOffsetForIndex(array.length) - topSpacer - visibleHeight)
+    const bottomSpacer = Math.max(
+      0,
+      getOffsetForIndex(visibleEntries.length) - topSpacer - visibleHeight
+    )
 
     return {
       startIndex,
@@ -551,13 +777,19 @@ const ArrayTable: React.FC<Props> = ({
       topSpacer,
       bottomSpacer
     }
-  }, [array.length, focusedSearchRowIndex, findIndexForOffset, getOffsetForIndex, virtualViewport])
+  }, [
+    focusedSearchRowIndex,
+    findIndexForOffset,
+    getOffsetForIndex,
+    virtualViewport,
+    visibleEntries.length
+  ])
 
   virtualRangeRef.current = { startIndex: virtualRange.startIndex, endIndex: virtualRange.endIndex }
 
-  const visibleRows = React.useMemo(
-    () => array.slice(virtualRange.startIndex, virtualRange.endIndex),
-    [array, virtualRange.endIndex, virtualRange.startIndex]
+  const visibleWindow = React.useMemo(
+    () => visibleEntries.slice(virtualRange.startIndex, virtualRange.endIndex),
+    [visibleEntries, virtualRange.endIndex, virtualRange.startIndex]
   )
 
   return (
@@ -574,8 +806,38 @@ const ArrayTable: React.FC<Props> = ({
             <path d="M4 2a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v1h1a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h1V2zm2-1a1 1 0 0 0-1 1v1h6V2a1 1 0 0 0-1-1H6zM3 4a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V5a1 1 0 0 0-1-1H3z" />
           </svg>
         </button>
+        {showUnwindSelect && (
+          <label className="unwind-select-label">
+            {t('table.unwind')}
+            <select
+              className="unwind-select"
+              value={unwindState?.relativePath ?? ''}
+              onFocus={ensureUnwindCandidates}
+              onMouseDown={ensureUnwindCandidates}
+              onChange={(event) => onSetUnwind?.(path, event.target.value || null)}
+            >
+              <option value="">{t('table.unwindNone')}</option>
+              {(unwindCandidates ?? []).map((candidate) => (
+                <option key={candidate} value={candidate}>
+                  {candidate}[]
+                </option>
+              ))}
+              {unwindState && !(unwindCandidates ?? []).includes(unwindState.relativePath) && (
+                <option value={unwindState.relativePath}>{unwindState.relativePath}[]</option>
+              )}
+            </select>
+          </label>
+        )}
       </div>
-      {keyFilterMode && allKeys.length > 0 && (
+      {rowFilterActive && (
+        <div className="row-filter-summary">
+          {t('table.rowFilterSummary', { visible: visibleEntries.length, total: rowEntries.length })}
+          <button className="key-filter-inline-clear" onClick={() => onClearRowFilters?.(path)}>
+            {t('table.rowFilterClearAll')}
+          </button>
+        </div>
+      )}
+      {keyFilterMode && allKeys.length > 0 && !unwindState && (
         <div className="key-filter-panel">
           <div className="key-filter-panel-header">
             <span className="key-filter-title">{t('json.keyFilter')}</span>
@@ -644,7 +906,7 @@ const ArrayTable: React.FC<Props> = ({
           </div>
         </div>
       )}
-      {activeFilter && !keyFilterMode && (
+      {activeFilter && !keyFilterMode && !unwindState && (
         <div className="key-filter-summary">
           {t('table.visibleKeys', { keys: visibleKeys.join(', ') })}
           <button className="key-filter-inline-clear" onClick={() => onClearKeyFilter?.(path)}>
@@ -748,7 +1010,37 @@ const ArrayTable: React.FC<Props> = ({
           </button>
         </div>
       )}
-      <div ref={tableWrapperRef}>
+      <div ref={tableWrapperRef} className="array-table-scroll-content">
+        {openFilterColumnId && openColumnDistinct && rowFilterPopoverPosition && (
+          <div
+            className="row-filter-popover-anchor"
+            style={{
+              left: `${rowFilterPopoverPosition.left}px`,
+              top: `${rowFilterPopoverPosition.top}px`
+            }}
+          >
+            <RowFilterPopover
+              key={openFilterColumnId}
+              columnLabel={
+                dataColumns.find((column) => (column.valuePath ?? column.header) === openFilterColumnId)
+                  ?.header ?? openFilterColumnId
+              }
+              distinctValues={openColumnDistinct.values}
+              distinctTruncated={openColumnDistinct.truncated}
+              condition={rowFilterConditions?.[openFilterColumnId]}
+              onApply={(condition) => {
+                onSetRowFilter?.(path, openFilterColumnId, condition)
+                closeRowFilterPopover()
+              }}
+              onClearColumn={() => {
+                onClearRowFilterColumn?.(path, openFilterColumnId)
+                closeRowFilterPopover()
+              }}
+              onClose={closeRowFilterPopover}
+              t={t}
+            />
+          </div>
+        )}
         <ResizableTable
           headers={headers}
           tblClass="array expanded"
@@ -757,14 +1049,16 @@ const ArrayTable: React.FC<Props> = ({
           tbodyRef={tbodyRef}
         >
           <VirtualSpacerRow height={virtualRange.topSpacer} colSpan={headers.length} />
-          {visibleRows.map((item, offset) => {
-            const index = virtualRange.startIndex + offset
+          {visibleWindow.map((entry, offset) => {
+            const entryIndex = virtualRange.startIndex + offset
             return (
               <ArrayRow
-                key={index}
-                ref={getMeasuredRowRef(index)}
-                element={item}
-                index={index}
+                key={entry.key}
+                ref={getMeasuredRowRef(entryIndex)}
+                element={entry.element}
+                indexLabel={entry.indexLabel}
+                entryChild={entry.child}
+                unwindRelativePath={unwindState?.relativePath}
                 dataColumns={dataColumns}
                 valueColSpan={Math.max(dataColumns.length, 1)}
                 depth={depth}
@@ -772,13 +1066,17 @@ const ArrayTable: React.FC<Props> = ({
                 searchResults={searchResults}
                 currentResultIndex={currentResultIndex}
                 searchInputRef={searchInputRef}
-                path={`${path}[${index}]`}
+                path={entry.rowPath}
                 isEditMode={isEditMode}
                 onDataChange={onDataChange}
                 onDelete={onDelete}
+                onAddProperty={onAddProperty}
+                onAddItem={onAddItem}
+                onRenameKey={onRenameKey}
                 onExpandedChange={onExpandedChange}
                 expandedPaths={expandedPaths}
                 autoExpandPaths={autoExpandPaths}
+                prunePaths={prunePaths}
                 keyFilterMode={keyFilterMode}
                 keyFilters={keyFilters}
                 onBeginKeyFilterSelection={onBeginKeyFilterSelection}
@@ -795,6 +1093,12 @@ const ArrayTable: React.FC<Props> = ({
                 onApplyColumnProjection={onApplyColumnProjection}
                 onCancelColumnProjectionSelection={onCancelColumnProjectionSelection}
                 onClearColumnProjection={onClearColumnProjection}
+                rowFilters={rowFilters}
+                onSetRowFilter={onSetRowFilter}
+                onClearRowFilterColumn={onClearRowFilterColumn}
+                onClearRowFilters={onClearRowFilters}
+                unwinds={unwinds}
+                onSetUnwind={onSetUnwind}
                 onSaveSelectionOptions={onSaveSelectionOptions}
                 hasActiveSelection={hasActiveSelection}
                 t={t}
@@ -802,7 +1106,7 @@ const ArrayTable: React.FC<Props> = ({
             )
           })}
           <VirtualSpacerRow height={virtualRange.bottomSpacer} colSpan={headers.length} />
-          {isEditMode && (
+          {isEditMode && !unwindState && (
             <tr className="array-el add-row">
               <td className="index add-cell" colSpan={headers.length}>
                 <button className="add-row-btn" onClick={() => onAddItem?.(path, null)}>

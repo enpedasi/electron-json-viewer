@@ -50,6 +50,7 @@ td.index::after,
 .badge {
   padding: 1px 3px;
   display: inline-block;
+  vertical-align: middle;
   border-radius: 0.5em;
   color: var(--vscode-editor-background);
 }
@@ -130,6 +131,7 @@ td.index.null::after {
   text-align: center;
   width: 1em;
   margin-left: 4px;
+  vertical-align: middle;
   cursor: pointer;
   border: 1px solid;
   border-radius: 3px;
@@ -1215,6 +1217,7 @@ th:hover .col-filter-btn,
   align-items: center;
   gap: 6px;
   margin-bottom: 2px;
+  vertical-align: middle;
 }
 
 .tsv-copy-btn {

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useState } from 'react'
 
 interface Header {
   header: string
@@ -26,22 +26,7 @@ const ResizableTable: React.FC<ResizableTableProps> = ({
   tbodyRef,
   children
 }) => {
-  const [tableHeight, setTableHeight] = useState('0px')
   const [colWidth, setColWidth] = useState<Record<string, string | null>>({})
-  const tableRef = useRef<HTMLTableElement>(null)
-
-  useEffect(() => {
-    const observer = new ResizeObserver((entries) => {
-      const newHeight = Math.round(entries[0].contentRect.height)
-      setTableHeight((prev) => {
-        const prevNum = parseInt(prev, 10)
-        if (Math.abs(prevNum - newHeight) < 1) return prev
-        return newHeight + 'px'
-      })
-    })
-    if (tableRef.current) observer.observe(tableRef.current)
-    return () => observer.disconnect()
-  }, [])
 
   const resizeCol = (hdr: string, e: React.MouseEvent) => {
     const startX = e.pageX
@@ -70,7 +55,7 @@ const ResizableTable: React.FC<ResizableTableProps> = ({
   }
 
   return (
-    <table className={tblClass} ref={tableRef}>
+    <table className={tblClass}>
       {headers.length > 0 && (
         <thead className={theadClass}>
           <tr className={trClass}>
@@ -90,7 +75,7 @@ const ResizableTable: React.FC<ResizableTableProps> = ({
                 {resize !== false && (
                   <div
                     className="resizer"
-                    style={{ height: tableHeight }}
+                    style={{ height: '100%' }}
                     onMouseDown={(e) => resizeCol(headerId, e)}
                     onDoubleClick={() => resetColSize(headerId)}
                   ></div>

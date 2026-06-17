@@ -725,16 +725,25 @@ tr:hover .delete-row-btn {
   background: #1e1e1e;
   color: #858585;
   text-align: right;
-  padding: 4px 8px 4px 0;
+  padding: 0 8px 0 0;
   font-family: 'Consolas', 'Courier New', monospace;
   font-size: 13px;
-  line-height: 1.5;
   overflow: hidden;
+  position: relative;
   user-select: none;
   border-right: 1px solid #3c3c3c;
 }
 
+.line-number-list {
+  left: 0;
+  position: absolute;
+  right: 8px;
+  top: 4px;
+}
+
 .line-number {
+  height: 19.5px;
+  line-height: 19.5px;
   padding-right: 4px;
 }
 

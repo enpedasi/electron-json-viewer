@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react'
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { TabState } from '../../App'
 import { serializeData, validateText } from '../Cell/FileUtils'
 import { Translator } from '../../i18n'
@@ -9,27 +9,108 @@ interface TextEditorProps {
   t: Translator
 }
 
+const LINE_HEIGHT_PX = 19.5
+const LINE_NUMBER_BUFFER = 20
+const FALLBACK_VIEWPORT_HEIGHT = 600
+
+interface EditorState {
+  text: string
+  lineCount: number
+}
+
+function countLines(text: string): number {
+  let count = 1
+  for (let i = 0; i < text.length; i += 1) {
+    if (text.charCodeAt(i) === 10) count += 1
+  }
+  return count
+}
+
+function getInitialText(tabData: TabState): string {
+  if (tabData.jsonData === null || tabData.jsonData === undefined) return ''
+  if (!tabData.isDirty && tabData.originalContent !== '') return tabData.originalContent
+  return serializeData(tabData.jsonData, tabData.fileType)
+}
+
+function createEditorState(tabData: TabState): EditorState {
+  const text = getInitialText(tabData)
+  return { text, lineCount: countLines(text) }
+}
+
 const TextEditor: React.FC<TextEditorProps> = ({ tabData, onChange, t }) => {
-  const [text, setText] = useState('')
+  const [editorState, setEditorState] = useState<EditorState>(() => createEditorState(tabData))
   const [error, setError] = useState<string | null>(null)
-  const [lineCount, setLineCount] = useState(1)
+  const [lineNumberViewport, setLineNumberViewport] = useState({ scrollTop: 0, height: 0 })
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const lineNumbersRef = useRef<HTMLDivElement>(null)
+  const lineNumberFrameRef = useRef<number | null>(null)
+  const { text, lineCount } = editorState
+
+  const updateLineNumberViewport = useCallback(() => {
+    const textarea = textareaRef.current
+    if (!textarea) return
+    const next = {
+      scrollTop: textarea.scrollTop,
+      height: textarea.clientHeight
+    }
+    setLineNumberViewport((prev) =>
+      prev.scrollTop === next.scrollTop && prev.height === next.height ? prev : next
+    )
+  }, [])
+
+  const scheduleLineNumberViewportUpdate = useCallback(() => {
+    if (lineNumberFrameRef.current !== null) return
+    lineNumberFrameRef.current = window.requestAnimationFrame(() => {
+      lineNumberFrameRef.current = null
+      updateLineNumberViewport()
+    })
+  }, [updateLineNumberViewport])
 
   useEffect(() => {
-    if (tabData.jsonData !== null && tabData.jsonData !== undefined) {
-      const formatted = serializeData(tabData.jsonData, tabData.fileType)
-      setText(formatted)
-      setLineCount(formatted.split('\n').length)
-      setError(null)
+    updateLineNumberViewport()
+    const textarea = textareaRef.current
+    const resizeObserver =
+      textarea && typeof ResizeObserver !== 'undefined'
+        ? new ResizeObserver(updateLineNumberViewport)
+        : null
+
+    if (textarea && resizeObserver) {
+      resizeObserver.observe(textarea)
     }
-  }, [tabData.id])
+
+    return () => {
+      resizeObserver?.disconnect()
+      if (lineNumberFrameRef.current !== null) {
+        window.cancelAnimationFrame(lineNumberFrameRef.current)
+        lineNumberFrameRef.current = null
+      }
+    }
+  }, [updateLineNumberViewport])
+
+  const visibleLineNumbers = useMemo(() => {
+    const viewportHeight = lineNumberViewport.height || FALLBACK_VIEWPORT_HEIGHT
+    const firstVisibleLine =
+      Math.floor(lineNumberViewport.scrollTop / LINE_HEIGHT_PX) + 1
+    const visibleLineCount = Math.ceil(viewportHeight / LINE_HEIGHT_PX)
+    const startLine = Math.max(1, firstVisibleLine - LINE_NUMBER_BUFFER)
+    const endLine = Math.min(
+      lineCount,
+      firstVisibleLine + visibleLineCount + LINE_NUMBER_BUFFER
+    )
+    const numbers: number[] = []
+    for (let line = startLine; line <= endLine; line += 1) {
+      numbers.push(line)
+    }
+
+    return {
+      numbers,
+      offsetTop: (startLine - 1) * LINE_HEIGHT_PX - lineNumberViewport.scrollTop
+    }
+  }, [lineCount, lineNumberViewport])
 
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
       const newText = e.target.value
-      setText(newText)
-      setLineCount(newText.split('\n').length)
+      setEditorState({ text: newText, lineCount: countLines(newText) })
       try {
         validateText(newText, tabData.fileType)
         setError(null)
@@ -42,17 +123,14 @@ const TextEditor: React.FC<TextEditorProps> = ({ tabData, onChange, t }) => {
   )
 
   const handleScroll = useCallback(() => {
-    if (textareaRef.current && lineNumbersRef.current) {
-      lineNumbersRef.current.scrollTop = textareaRef.current.scrollTop
-    }
-  }, [])
+    scheduleLineNumberViewportUpdate()
+  }, [scheduleLineNumberViewportUpdate])
 
   const handleFormat = useCallback(() => {
     try {
       const parsed = validateText(text, tabData.fileType)
       const formatted = serializeData(parsed, tabData.fileType)
-      setText(formatted)
-      setLineCount(formatted.split('\n').length)
+      setEditorState({ text: formatted, lineCount: countLines(formatted) })
       setError(null)
       onChange(formatted)
     } catch (err: any) {
@@ -64,14 +142,13 @@ const TextEditor: React.FC<TextEditorProps> = ({ tabData, onChange, t }) => {
     try {
       const parsed = validateText(text, tabData.fileType)
       const minified = JSON.stringify(parsed)
-      setText(minified)
-      setLineCount(1)
+      setEditorState({ text: minified, lineCount: 1 })
       setError(null)
       onChange(minified)
     } catch (err: any) {
       setError(err.message)
     }
-  }, [text, onChange])
+  }, [text, onChange, tabData.fileType])
 
   const label = tabData.fileType === 'yaml' ? 'YAML' : 'JSON'
 
@@ -88,12 +165,17 @@ const TextEditor: React.FC<TextEditorProps> = ({ tabData, onChange, t }) => {
         )}
       </div>
       <div className="text-editor-body">
-        <div className="line-numbers" ref={lineNumbersRef}>
-          {Array.from({ length: lineCount }, (_, i) => (
-            <div key={i} className="line-number">
-              {i + 1}
-            </div>
-          ))}
+        <div className="line-numbers">
+          <div
+            className="line-number-list"
+            style={{ transform: `translateY(${visibleLineNumbers.offsetTop}px)` }}
+          >
+            {visibleLineNumbers.numbers.map((line) => (
+              <div key={line} className="line-number">
+                {line}
+              </div>
+            ))}
+          </div>
         </div>
         <textarea
           ref={textareaRef}
@@ -102,6 +184,7 @@ const TextEditor: React.FC<TextEditorProps> = ({ tabData, onChange, t }) => {
           onChange={handleChange}
           onScroll={handleScroll}
           spellCheck={false}
+          wrap="off"
         />
       </div>
       {error && (

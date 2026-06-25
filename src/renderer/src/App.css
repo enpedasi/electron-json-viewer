@@ -50,6 +50,7 @@ td.index::after,
 .badge {
   padding: 1px 3px;
   display: inline-block;
+  vertical-align: middle;
   border-radius: 0.5em;
   color: var(--vscode-editor-background);
 }
@@ -130,9 +131,39 @@ td.index.null::after {
   text-align: center;
   width: 1em;
   margin-left: 4px;
+  vertical-align: middle;
   cursor: pointer;
   border: 1px solid;
   border-radius: 3px;
+}
+
+.array-cell {
+  position: relative;
+}
+
+.array-cell-header {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  width: max-content;
+  box-sizing: border-box;
+  padding: 2px 6px 2px 0;
+  margin-bottom: 2px;
+  white-space: nowrap;
+  background: linear-gradient(
+    to right,
+    var(--vscode-editor-background) calc(100% - 8px),
+    transparent
+  );
+}
+
+.array-cell-header .expand {
+  flex: 0 0 auto;
+  margin-left: 0;
+}
+
+.array-cell-header .badge {
+  flex: 0 0 auto;
 }
 
 th.member {
@@ -723,16 +754,25 @@ tr:hover .delete-row-btn {
   background: #1e1e1e;
   color: #858585;
   text-align: right;
-  padding: 4px 8px 4px 0;
+  padding: 0 8px 0 0;
   font-family: 'Consolas', 'Courier New', monospace;
   font-size: 13px;
-  line-height: 1.5;
   overflow: hidden;
+  position: relative;
   user-select: none;
   border-right: 1px solid #3c3c3c;
 }
 
+.line-number-list {
+  left: 0;
+  position: absolute;
+  right: 8px;
+  top: 4px;
+}
+
 .line-number {
+  height: 19.5px;
+  line-height: 19.5px;
   padding-right: 4px;
 }
 
@@ -1215,6 +1255,7 @@ th:hover .col-filter-btn,
   align-items: center;
   gap: 6px;
   margin-bottom: 2px;
+  vertical-align: middle;
 }
 
 .tsv-copy-btn {

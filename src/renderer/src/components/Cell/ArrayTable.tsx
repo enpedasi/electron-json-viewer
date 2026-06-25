@@ -38,6 +38,7 @@ import {
 } from './unwind'
 import { PrunePathSets, isPathVisibleInPrune } from '../JsonView/searchPrune'
 import { Translator } from '../../i18n'
+import { getVirtualScrollScale, splitVirtualSpacerHeight } from './virtualScroll'
 
 const ESTIMATED_ROW_HEIGHT = 28
 const VIRTUAL_OVERSCAN_ROWS = 12
@@ -747,13 +748,17 @@ const ArrayTable: React.FC<Props> = ({
     }
 
     const viewportHeight = virtualViewport.viewportHeight || VIRTUAL_VIEWPORT_FALLBACK_HEIGHT
+    const totalLogicalHeight = getOffsetForIndex(visibleEntries.length)
+    const scrollScale = getVirtualScrollScale(totalLogicalHeight)
+    const logicalScrollOffset = virtualViewport.scrollOffset * scrollScale
+    const logicalViewportHeight = viewportHeight * scrollScale
     let startIndex = Math.max(
       0,
-      findIndexForOffset(virtualViewport.scrollOffset) - VIRTUAL_OVERSCAN_ROWS
+      findIndexForOffset(logicalScrollOffset) - VIRTUAL_OVERSCAN_ROWS
     )
     let endIndex = Math.min(
       visibleEntries.length,
-      findIndexForOffset(virtualViewport.scrollOffset + viewportHeight) + VIRTUAL_OVERSCAN_ROWS + 1
+      findIndexForOffset(logicalScrollOffset + logicalViewportHeight) + VIRTUAL_OVERSCAN_ROWS + 1
     )
 
     if (
@@ -764,11 +769,12 @@ const ArrayTable: React.FC<Props> = ({
       endIndex = Math.min(visibleEntries.length, focusedSearchRowIndex + VIRTUAL_OVERSCAN_ROWS + 1)
     }
 
-    const topSpacer = getOffsetForIndex(startIndex)
-    const visibleHeight = getOffsetForIndex(endIndex) - topSpacer
+    const logicalTopSpacer = getOffsetForIndex(startIndex)
+    const visibleHeight = getOffsetForIndex(endIndex) - logicalTopSpacer
+    const topSpacer = logicalTopSpacer / scrollScale
     const bottomSpacer = Math.max(
       0,
-      getOffsetForIndex(visibleEntries.length) - topSpacer - visibleHeight
+      (totalLogicalHeight - logicalTopSpacer - visibleHeight) / scrollScale
     )
 
     return {
@@ -1122,18 +1128,23 @@ const ArrayTable: React.FC<Props> = ({
 }
 
 function VirtualSpacerRow({ height, colSpan }: { height: number; colSpan: number }) {
-  if (height <= 0) return null
+  const rowHeights = splitVirtualSpacerHeight(height)
+  if (rowHeights.length === 0) return null
   return (
-    <tr aria-hidden="true" className="array-virtual-spacer">
-      <td
-        colSpan={colSpan}
-        style={{
-          border: 0,
-          height: `${height}px`,
-          padding: 0
-        }}
-      />
-    </tr>
+    <>
+      {rowHeights.map((rowHeight, index) => (
+        <tr key={index} aria-hidden="true" className="array-virtual-spacer">
+          <td
+            colSpan={colSpan}
+            style={{
+              border: 0,
+              height: `${rowHeight}px`,
+              padding: 0
+            }}
+          />
+        </tr>
+      ))}
+    </>
   )
 }
 

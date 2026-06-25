@@ -150,10 +150,12 @@ const Cell: React.FC<CellProps> = ({
   if (Array.isArray(element)) {
     return (
       <div ref={cellRef} data-path={path} className="cell-container array-cell">
-        <span className="array badge">Array[{element.length}]</span>
-        <span className="expand" tabIndex={0} onClick={toggleExpanded} onKeyDown={handleKeyDown}>
-          {expanded ? '-' : '+'}
-        </span>
+        <div className="array-cell-header">
+          <span className="array badge">Array[{element.length}]</span>
+          <span className="expand" tabIndex={0} onClick={toggleExpanded} onKeyDown={handleKeyDown}>
+            {expanded ? '-' : '+'}
+          </span>
+        </div>
         {expanded && (
           <ArrayTable
             array={element}

@@ -137,6 +137,35 @@ td.index.null::after {
   border-radius: 3px;
 }
 
+.array-cell {
+  position: relative;
+}
+
+.array-cell-header {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  width: max-content;
+  box-sizing: border-box;
+  padding: 2px 6px 2px 0;
+  margin-bottom: 2px;
+  white-space: nowrap;
+  background: linear-gradient(
+    to right,
+    var(--vscode-editor-background) calc(100% - 8px),
+    transparent
+  );
+}
+
+.array-cell-header .expand {
+  flex: 0 0 auto;
+  margin-left: 0;
+}
+
+.array-cell-header .badge {
+  flex: 0 0 auto;
+}
+
 th.member {
   border: 1px solid var(--vscode-editor-foreground);
   border-top: 2px solid var(--vscode-editor-foreground);

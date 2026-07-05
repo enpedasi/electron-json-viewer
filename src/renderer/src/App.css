@@ -27,7 +27,7 @@ table {
 td,
 th {
   padding: 2px 4px;
-  vertical-align: baseline;
+  vertical-align: top;
 }
 
 td.member,
@@ -142,7 +142,7 @@ td.index.null::after {
 }
 
 .array-cell-header {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: 4px;
   width: max-content;
@@ -905,7 +905,7 @@ tr:hover .delete-row-btn {
 .key-filter-panel,
 .key-filter-summary,
 .row-filter-summary {
-  display: inline-flex;
+  display: flex;
   flex-direction: column;
   gap: 6px;
   max-width: min(520px, calc(100vw - 80px));
@@ -1029,7 +1029,7 @@ th.filtered-column {
 
 .column-projection-panel,
 .column-projection-summary {
-  display: inline-flex;
+  display: flex;
   flex-direction: column;
   gap: 6px;
   max-width: min(720px, calc(100vw - 80px));
@@ -1251,9 +1251,10 @@ th:hover .col-filter-btn,
 }
 
 .array-table-header-row {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: 6px;
+  width: max-content;
   margin-bottom: 2px;
   vertical-align: middle;
 }
